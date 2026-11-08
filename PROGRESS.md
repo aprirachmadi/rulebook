@@ -82,8 +82,13 @@
   - Smoke test (1 cluster, 20-receipt OCR run): diagnoser ran out of steps (fixed: forced final structured answer at max_steps; inspect at most 3 items; max_steps 12). Clustering too fine: 17% of spans are unanimous-but-low-confidence (mostly OCR noise as `other`); real disagreements group by label set, but the text key splits them (item names: median embedding distance 0.63).
 - M5 dev run labeling done: 20261108-162007-4ac31b (train_0000-0049, OCR, tightened `other` prompt). Alpha 0.593. Headline: qwen 55.7%, llama 62.3%, gemma 75.4% -> **qwen and llama flagged (< 75%)**. All-agree matches v2 85.4%, majority 76.1%. On train_0000-0019 the tightened prompt raised qwen 55.3 -> 60.9%, llama 59.2 -> 65.5%, gemma 74.3 -> 75.6%.
 
+- Clustering switched to label set (embeddings only for label sets > 50); unanimous-but-low-confidence spans -> review queue as "low confidence". 136 tests.
+- Gold-text run 20261108-164513-9af69a (train_0000-0019, tightened prompt): alpha 0.745; headline qwen 75.3%, llama 83.2%, gemma 90.5% -> all pass the 75% bar (on gold text). All-agree matches v2 98.0%, majority 91.2%.
+- All-agree-but-wrong on the OCR run (`eval/agree_wrong.py`): 82 words = 12 OCR misread + 70 shared mistakes; top shared pair menu.cnt -> menu.nm (20).
+- `rulebook improve 20261108-162007-4ac31b`: 561 accepted words, 30 low-confidence spans, 497 disagreement spans, 139 label sets, 8 clusters. **All 8 diagnosed AMBIGUOUS -> no patches.** Timings: cluster 0.1s, diagnose 136.1s, write 0, verify 0.
+
 ## In progress
-- Waiting for the clustering decision; then `rulebook improve 20261108-162007-4ac31b` with stage timings.
+- Waiting for the user: how to fix the diagnoser calling everything AMBIGUOUS (clusters 1-3: "guideline doesn't say" read as unclear input; clusters 4-7: OCR puts the keyword and the number on separate lines, and the diagnoser sees one line only).
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
