@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, ValidationInfo, conint, create_model, field_validator
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from rulebook.data.cord import Box, Receipt
 from rulebook.tools.ocr import OcrResult, WordRef, match_word
@@ -80,18 +80,40 @@ def ocr_doc(receipt: Receipt, ocr: OcrResult) -> LabelDoc:
                     height=ocr.height, lines=lines)
 
 
-def render(doc: LabelDoc) -> str:
-    """The receipt as the labeler sees it: line index, rough position (0-100), numbered words."""
+Scope = dict[int, list[int]]  # line_idx -> word indices to label
+
+
+def full_scope(doc: LabelDoc, lines: list[int] | None = None) -> Scope:
+    wanted = set(lines) if lines is not None else None
+    return {ln.line_idx: list(range(len(ln.words))) for ln in doc.lines
+            if wanted is None or ln.line_idx in wanted}
+
+
+def render(doc: LabelDoc, scope: Scope | None = None, note: str = "") -> str:
+    """Lines as the labeler sees them: [line_idx] (x, y) then numbered words.
+
+    `scope` limits which lines are shown (a chunk, or a repair); a line in a repair whose
+    scope is only some of its words says which ones to label.
+    """
+    scope = scope if scope is not None else full_scope(doc)
+    shown = [ln for ln in doc.lines if ln.line_idx in scope]
+    first, last = shown[0].line_idx, shown[-1].line_idx
     out = [
-        f"Receipt {doc.receipt_id}. One line per row: [line_idx] (x, y) then numbered words.",
+        f"Receipt {doc.receipt_id}, lines {first}-{last} of {len(doc.lines)}. "
+        "One line per row: [line_idx] (x, y) then numbered words.",
         "x and y are the line's centre, 0-100 from the left / top of the receipt.",
-        "",
     ]
-    for ln in doc.lines:
+    if note:
+        out.append(note)
+    out.append("")
+    for ln in shown:
         x = round(100 * (ln.box[0] + ln.box[2]) / 2 / doc.width)
         y = round(100 * (ln.box[1] + ln.box[3]) / 2 / doc.height)
         words = " ".join(f"{i}:{w.text}" for i, w in enumerate(ln.words))
-        out.append(f"[{ln.line_idx}] ({x}, {y}) {words}")
+        row = f"[{ln.line_idx}] ({x}, {y}) {words}"
+        if len(scope[ln.line_idx]) < len(ln.words):
+            row += f"   <- label only words {scope[ln.line_idx]}"
+        out.append(row)
     return "\n".join(out)
 
 
@@ -100,69 +122,99 @@ def render(doc: LabelDoc) -> str:
 
 class Span(BaseModel):
     line_idx: int
-    words: list[int]
+    words: list[int] = Field(min_length=1)
     label: str
     confidence: float = Field(ge=0, le=1)
-    reason: str
+    reason: str = ""  # asked for only when confidence < 0.7
 
 
 class LabelBatch(BaseModel):
     labels: list[Span]
 
 
-def coverage_errors(doc: LabelDoc, spans: list[Span]) -> list[str]:
-    """Every word of every line must get exactly one label."""
-    sizes = {ln.line_idx: len(ln.words) for ln in doc.lines}
-    seen: dict[tuple[int, int], int] = {}
-    errors = []
+def answer_schema(scope: Scope, label_space: tuple[str, ...]) -> dict[str, Any]:
+    """JSON schema with one alternative per line: `line_idx` fixed and that line's own word
+    numbers as an enum, so constrained decoding can't use a word number the line lacks."""
+    per_line = [
+        {
+            "type": "object",
+            "properties": {
+                "line_idx": {"const": li},
+                "words": {"type": "array", "items": {"enum": words}, "minItems": 1,
+                          "maxItems": len(words)},
+                "label": {"enum": list(label_space)},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                "reason": {"type": "string"},
+            },
+            "required": ["line_idx", "words", "label", "confidence"],
+        }
+        for li, words in scope.items()
+    ]
+    n_words = sum(len(w) for w in scope.values())
+    return {
+        "title": "LabelBatch",
+        "type": "object",
+        "properties": {
+            "labels": {"type": "array", "items": {"anyOf": per_line}, "minItems": 1,
+                       "maxItems": n_words}
+        },
+        "required": ["labels"],
+    }
+
+
+def batch_model(scope: Scope, label_space: tuple[str, ...]) -> type[LabelBatch]:
+    """Pydantic model for one call: label enum enforced; its JSON schema is `answer_schema`.
+    Coverage is not validated here; `sort_spans` handles it so good spans are kept."""
+    span = create_model("Span", __base__=Span,
+                        label=(Literal[label_space], ...))  # type: ignore[valid-type]
+    schema = answer_schema(scope, label_space)
+
+    def use_answer_schema(s: dict[str, Any], _cls: Any) -> None:
+        s.clear()
+        s.update(schema)
+
+    class Batch(LabelBatch):
+        model_config = ConfigDict(json_schema_extra=use_answer_schema)
+        labels: list[span]  # type: ignore[valid-type]
+
+    return Batch
+
+
+def sort_spans(
+    scope: Scope, spans: list[Span]
+) -> tuple[dict[tuple[int, int], Span], Scope, list[str]]:
+    """Keep every word labeled once and in scope; return (accepted, still to label, problems).
+
+    Out-of-scope lines/words are dropped. A word given two different labels goes back to
+    "still to label"; the same label twice is fine.
+    """
+    accepted: dict[tuple[int, int], Span] = {}
+    conflicts: set[tuple[int, int]] = set()
+    problems: list[str] = []
     for s in spans:
-        if s.line_idx not in sizes:
-            errors.append(f"line_idx {s.line_idx} does not exist")
+        allowed = set(scope.get(s.line_idx, []))
+        if not allowed:
+            problems.append(f"line {s.line_idx} was not asked for")
             continue
         for w in s.words:
-            if not 0 <= w < sizes[s.line_idx]:
-                errors.append(f"line {s.line_idx} has no word {w}")
-            else:
-                seen[(s.line_idx, w)] = seen.get((s.line_idx, w), 0) + 1
-    twice = sorted(k for k, n in seen.items() if n > 1)
-    missing = [k for k in doc.word_keys() if k not in seen]
-    if twice:
-        errors.append(f"words labeled more than once (line, word): {twice[:15]}")
-    if missing:
-        errors.append(f"words with no label (line, word): {missing[:15]}"
-                      + (f" and {len(missing) - 15} more" if len(missing) > 15 else ""))
-    return errors
-
-
-def batch_model(doc: LabelDoc, label_space: tuple[str, ...]) -> type[LabelBatch]:
-    """A LabelBatch schema for this receipt: labels restricted to the label space (as an enum,
-    so constrained decoding enforces it) and a validator for full, non-overlapping coverage."""
-    n_lines = len(doc.lines)
-    max_words = max((len(ln.words) for ln in doc.lines), default=1)
-    n_words = len(doc.word_keys())
-    # Bounds go into the JSON schema, so constrained decoding cannot invent lines or words.
-    span = create_model(
-        "Span",
-        __base__=Span,
-        line_idx=(conint(ge=0, le=max(n_lines - 1, 0)), ...),
-        words=(list[conint(ge=0, le=max_words - 1)], Field(min_length=1)),  # type: ignore[valid-type]
-        label=(Literal[label_space], ...),  # type: ignore[valid-type]
-    )
-
-    def _cover(cls: Any, v: list[Span], info: ValidationInfo) -> list[Span]:
-        errs = coverage_errors(doc, v)
-        if errs:
-            raise ValueError("; ".join(errs))
-        return v
-
-    return create_model(
-        "LabelBatch",
-        __base__=LabelBatch,
-        labels=(list[span], Field(min_length=1, max_length=max(n_words, 1))),  # type: ignore[valid-type]
-        __validators__={"cover": field_validator("labels")(_cover)},
-    )
-
-
-def word_labels(doc: LabelDoc, batch: LabelBatch) -> dict[tuple[int, int], Span]:
-    """(line_idx, word_idx) -> the span that labels it."""
-    return {(s.line_idx, w): s for s in batch.labels for w in s.words}
+            key = (s.line_idx, w)
+            if w not in allowed:
+                problems.append(f"line {s.line_idx} has no word {w} to label")
+            elif key in conflicts:
+                continue
+            elif key in accepted and accepted[key].label != s.label:
+                conflicts.add(key)
+                del accepted[key]
+            elif key not in accepted:
+                accepted[key] = s
+    todo: Scope = {}
+    for li, words in scope.items():
+        left = [w for w in words if (li, w) not in accepted]
+        if left:
+            todo[li] = left
+    if conflicts:
+        problems.append(f"words given two different labels: {sorted(conflicts)[:10]}")
+    missing = sum(len(w) for w in todo.values()) - len(conflicts)
+    if missing > 0:
+        problems.append(f"{missing} words got no label")
+    return accepted, todo, problems

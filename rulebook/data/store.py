@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from rulebook.config import ROOT, load_config
-from rulebook.tools.labels import LabelBatch, LabelDoc, word_labels
+from rulebook.tools.labels import LabelDoc, Span
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -46,9 +46,9 @@ def save_run(db: sqlite3.Connection, run_id: str, text_source: str, version: str
 
 
 def save_votes(db: sqlite3.Connection, run_id: str, doc: LabelDoc, agent: str, model: str,
-               version: str, batch: LabelBatch) -> None:
+               version: str, labels: dict[tuple[int, int], Span]) -> None:
     rows = [(run_id, doc.receipt_id, li, wi, agent, model, version, s.label, s.confidence,
-             s.reason) for (li, wi), s in word_labels(doc, batch).items()]
+             s.reason) for (li, wi), s in labels.items()]
     db.executemany("INSERT INTO votes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
     db.commit()
 

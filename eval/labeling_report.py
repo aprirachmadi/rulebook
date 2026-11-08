@@ -11,6 +11,8 @@ from rulebook.config import ROOT, load_config
 from rulebook.data.store import connect, load_docs, load_votes
 from rulebook.pipeline.labeling import LABELERS
 
+OTHER = load_config()["labeling"]["other_label"]
+
 
 def report(run_id: str) -> str:
     db = connect()
@@ -23,24 +25,34 @@ def report(run_id: str) -> str:
 
     total = matched = 0
     correct = Counter()
-    voted = Counter()
+    voted = Counter()  # matched words labeled with a CORD label (scored)
+    other_matched = Counter()  # matched words labeled `other` (excluded from accuracy)
+    other_unmatched = Counter()  # OCR-miss words labeled `other`
+    labeled_any = Counter()
     majority_ok = majority_n = accepted_ok = accepted_n = 0
     confusions: Counter[tuple[str, str]] = Counter()
     for d in docs:
         for ln in d.lines:
             for wi, w in enumerate(ln.words):
                 total += 1
-                if w.ref is None:
-                    continue  # OCR miss: no CORD word to score against
+                v = votes.get((d.receipt_id, ln.line_idx, wi), {})
+                for a in v:
+                    labeled_any[a] += 1
+                if w.ref is None:  # OCR miss: no CORD word to score against
+                    for a in v:
+                        other_unmatched[a] += v[a] == OTHER
+                    continue
                 matched += 1
                 gold = key[(d.receipt_id, w.ref[0])]
-                v = votes.get((d.receipt_id, ln.line_idx, wi), {})
                 for a in LABELERS:
-                    if a in v:
+                    if a in v and v[a] == OTHER:
+                        other_matched[a] += 1
+                    elif a in v:
                         voted[a] += 1
                         correct[a] += v[a] == gold
                         if v[a] != gold:
                             confusions[(gold, v[a])] += 1
+                v = {a: lab for a, lab in v.items() if lab != OTHER}
                 top = Counter(v.values()).most_common(1)
                 if top and top[0][1] >= 2:
                     majority_n += 1
@@ -62,16 +74,24 @@ def report(run_id: str) -> str:
         else "Alpha: n/a",
         f"Agreement pattern: {summary['agreement_pattern']}",
         "",
-        "| labeler | model | words labeled (of matched) | agreement with v2 |",
-        "|---|---|---|---|",
+        "| labeler | model | complete receipts | words labeled (of all) | agreement with v2 "
+        "(excl. other) | `other` used (matched / OCR-miss words) |",
+        "|---|---|---|---|---|---|",
     ]
+    by_agent = {s["agent"]: s for s in summary["labelers"]}
     for a in LABELERS:
-        lines.append(f"| {a} | {models.get(a, '?')} | {voted[a]} / {matched} | "
-                     f"{pct(correct[a], voted[a])} |")
+        other = other_matched[a] + other_unmatched[a]
+        lines.append(
+            f"| {a} | {models.get(a, '?')} | {by_agent[a].get('receipts_complete', '?')}/"
+            f"{len(docs)} | {labeled_any[a]} / {total} | {pct(correct[a], voted[a])} "
+            f"({voted[a]} words) | {pct(other, labeled_any[a])} "
+            f"({other_matched[a]} / {other_unmatched[a]}) |")
     lines += [
         "",
-        f"Majority vote (2+ agree) vs v2: {pct(majority_ok, majority_n)} of {majority_n} words.",
-        f"All three agree: {accepted_n} words, of which {pct(accepted_ok, accepted_n)} match v2.",
+        f"Majority vote (2+ agree, excl. other) vs v2: {pct(majority_ok, majority_n)} of "
+        f"{majority_n} words.",
+        f"All three agree (excl. other): {accepted_n} words, of which "
+        f"{pct(accepted_ok, accepted_n)} match v2.",
         "",
         "Top 10 disagreements with v2 (v2 label -> labeler label, count over all labelers):",
         "",
@@ -79,8 +99,9 @@ def report(run_id: str) -> str:
     lines += [f"- {g} -> {p}: {n}" for (g, p), n in confusions.most_common(10)]
     lines += ["", "Labeler run stats:", ""]
     for s in summary["labelers"]:
-        lines.append(f"- {s['agent']}: ok {s['ok']}, failed {s['failed']}, repaired "
-                     f"{s['repaired']}, {s['seconds']:.0f}s, {s['tokens']} tokens")
+        lines.append(f"- {s['agent']}: calls {s['calls']} (targeted repairs {s['repairs']}), "
+                     f"words failed {s['words_failed']}, {s['seconds']:.0f}s, "
+                     f"{s['tokens']} tokens")
     text = "\n".join(lines) + "\n"
     (ROOT / "reports" / f"run_{run_id}_labeling.md").write_text(text, encoding="utf-8")
     return text

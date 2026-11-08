@@ -44,3 +44,6 @@
 | 2026-11-08 | M4 E: labeler input | Line index, numbered words, rough position (0–100), answer format as in B |
 | 2026-11-08 | Embedding model | Pull nomic-embed-text |
 | 2026-11-08 | After first 20-receipt run | Show word-level alpha and each labeler's agreement with v2 before building anything else |
+| 2026-11-08 | First 20-receipt run: labeler failures | Fix before considering other models: add an "other" label (text CORD doesn't label: store name, date, address, cashier, footer); words labeled "other" excluded from accuracy vs v2, report each labeler's use of it |
+| 2026-11-08 | Chunking (spec change) | ~20 lines per labeler call; "reason" only when confidence < 0.7 |
+| 2026-11-08 | Repair | Targeted repair approved (re-ask only bad / missing words); fix the per-line word index bound |

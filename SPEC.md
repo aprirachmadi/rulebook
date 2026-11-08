@@ -45,7 +45,10 @@ Each sample has an image and a `ground_truth` JSON string. Inside `gt` → `vali
 and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 
 ### Unit of labeling = word spans inside a line (decided 2026-11-08, replaces "one valid_line")
-- OCR mode: the unit shown to labelers is one OCR text line with numbered words. Labelers return spans `[{line_idx, words: [word indices], label, confidence, reason}]`; every word gets exactly one label (validated, one repair retry).
+- OCR mode: the unit shown to labelers is one OCR text line with numbered words. Labelers return spans `[{line_idx, words: [word indices], label, confidence, reason}]`; every word gets exactly one label.
+- Receipts are labeled in chunks of ~20 lines per call (`labeling.chunk_lines`). `reason` is asked for only when confidence < 0.7.
+- Validation: per-line word bounds are in the JSON schema. Words left unlabeled or labeled inconsistently get one targeted repair call (only those words); words still unlabeled after it count as failures.
+- Label space for labelers = the CORD categories + `other` (text CORD doesn't label: store name, date, address, cashier, footer). Words labeled `other` are excluded from accuracy vs v2; each labeler's use of `other` is reported.
 - Gold-text mode: the same format over CORD lines and CORD words.
 - Scoring and alpha are at **word level**. Each OCR word is matched to a CORD word (word centre inside the CORD word box, then text similarity) and takes that CORD word's v2 label (its line's `category`). Unmatched OCR words count as OCR misses.
 
@@ -134,7 +137,7 @@ Write from scratch. Target ~1,000 lines total.
 | `verifier` | `simulate_patch`, `compute_alpha`, `run_gold_set`, `diff_labels` | `stats-checks` |
 | `orchestrator` | `delegate`, `list_clusters`, `request_human`, `apply_patch` (**needs_approval**), `relabel` (**needs_approval**) | — |
 
-Labelers should use `output_schema` (JSON: `[{line_idx, label, confidence, reason}]`) and may run without tool calls for speed. Batch ~1 receipt per call.
+Labelers use `output_schema` (word spans, see section 1) and run without tool calls (structured mode). ~20 lines per call (changed 2026-11-08 from ~1 receipt per call).
 
 ---
 

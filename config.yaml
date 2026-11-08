@@ -76,6 +76,10 @@ ocr:   # PaddleOCR on CPU (no VRAM), local models copied from crumb, offline
   rec_model: PP-OCRv6_small_rec
   cpu_threads: 4
 
+labeling:
+  chunk_lines: 20        # lines per labeler call (decided 2026-11-08)
+  other_label: other     # text CORD doesn't label; excluded from accuracy vs v2
+
 storage:
   db_path: rulebook.db
 
