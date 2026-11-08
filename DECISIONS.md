@@ -57,3 +57,8 @@
 | 2026-11-08 | Cluster hold-out | Rule writer sees ~70% of a cluster (examples only from it); verifier measures cluster alpha gain on the held-out ~30%. Clusters too small to split are marked "not held out" |
 | 2026-11-08 | Clusters per run | Process only the top N clusters by size (N = 8, config); the rest stay in the review queue |
 | 2026-11-08 | Timings | Report per stage (cluster, diagnose, write, verify) after the 50-receipt dev run |
+| 2026-11-08 | Clustering key (replaces Q1/Q2 of the M5 plan) | Cluster by label set; embeddings only to split a label set > 50 items. Unanimous-but-low-confidence spans go to the review queue as "low confidence" |
+| 2026-11-08 | Verifier | Plain code (gold relabel + hold-out alpha), not an agent. Approved after the fact; user reminder: changes like this need OK before building, not after |
+| 2026-11-08 | 75% labeler bar | Applies to gold text. Run gold text on train_0000-0019 with the tightened prompt, report headline per labeler |
+| 2026-11-08 | All-agree-but-wrong breakdown | Split the OCR run's all-3-agree-but-wrong words into OCR misreads vs shared mistakes; list top confusion pairs of shared mistakes |
+| 2026-11-08 | Vision re-read agent | After M5 acceptance; ask then |

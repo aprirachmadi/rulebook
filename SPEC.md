@@ -96,8 +96,9 @@ receipt image
 - GUIDELINE_GAP: no guideline rule covers the case, or two rules conflict. This is the only class that produces a patch.
 
 ### Clustering (keep it simple first)
-1. Key = (sorted set of voted labels, normalized text pattern). Normalized pattern: lowercase, digits → `#`, e.g. `disc #%`.
-2. If a key group has > 50 lines or there are too many tiny groups, sub‑cluster with embeddings (`nomic-embed-text`) + agglomerative clustering (cosine, distance threshold 0.25).
+1. Key = sorted set of voted labels (decision 2026-11-08; the earlier key also included the normalized text pattern, which split item names into near-singletons). The normalized pattern (lowercase, digits → `#`, e.g. `disc #%`) is still shown to agents as a description.
+2. If a label set has > 50 items, sub‑cluster it with embeddings (`nomic-embed-text`) + agglomerative clustering (cosine, distance threshold 0.25).
+2a. Spans where all labelers voted the same label but at least one was below the confidence bar are not disagreements: they go to the review queue as "low confidence".
 3. Only clusters with ≥ 3 lines go to the Rule writer. Smaller ones go to the review queue as single items.
 
 ### Number rule (hard rule)

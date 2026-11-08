@@ -34,7 +34,13 @@ from rulebook.pipeline.labeling import (
     labeler_labels,
 )
 from rulebook.tools.agent_tools import RunContext, build_registry
-from rulebook.tools.clusters import Cluster, cluster_items, disagreement_spans, make_clusters
+from rulebook.tools.clusters import (
+    Cluster,
+    cluster_items,
+    disagreement_spans,
+    make_clusters,
+    split_low_confidence,
+)
 from rulebook.tools.guideline import (
     current_version,
     guideline_text,
@@ -163,6 +169,7 @@ def improve(run_id: str) -> dict:
     embed = lambda texts: np.asarray(embedder.embed(texts), dtype=float)  # noqa: E731
     accepted, items = disagreement_spans(list(docs.values()), votes, agents,
                                          cfg["pipeline"]["accept_min_confidence"])
+    low, items = split_low_confidence(items, agents)
     groups, cstats = cluster_items(items, embed, ccfg)
     clusters, rest = make_clusters(groups, ccfg)
     db.execute("DELETE FROM clusters WHERE run_id = ?", (run_id,))
@@ -177,11 +184,15 @@ def improve(run_id: str) -> dict:
         db.executemany("INSERT INTO review_queue VALUES (?, ?, ?, ?)",
                        [(run_id, "item", json.dumps({"item_id": it.item_id, "text": it.text}),
                          reason) for it in g])
+    db.executemany("INSERT INTO review_queue VALUES (?, ?, ?, ?)",
+                   [(run_id, "item", json.dumps({"item_id": it.item_id, "text": it.text}),
+                     "low confidence") for it in low])
     db.commit()
     timings["cluster"] = time.perf_counter() - t0
-    console.print(f"cluster: {accepted} accepted words, {len(items)} disagreement spans, "
-                  f"{len(groups)} groups, {len(clusters)} clusters processed, "
-                  f"{sum(len(g) for g in rest)} items to review queue ({timings['cluster']:.0f}s)")
+    console.print(f"cluster: {accepted} accepted words, {len(low)} low-confidence spans, "
+                  f"{len(items)} disagreement spans, {len(groups)} groups, "
+                  f"{len(clusters)} clusters processed, {len(low) + sum(len(g) for g in rest)} "
+                  f"items to review queue ({timings['cluster']:.0f}s)")
 
     ctx = RunContext(run_id, text_source, docs, votes, agents,
                      {c.cluster_id: c for c in clusters}, embed, version)
@@ -283,7 +294,8 @@ def improve(run_id: str) -> dict:
 
     result = {
         "run_id": run_id, "timings_s": {k: round(v, 1) for k, v in timings.items()},
-        "accepted_words": accepted, "disagreement_spans": len(items), "cluster_stats": cstats,
+        "accepted_words": accepted, "low_confidence_spans": len(low),
+        "disagreement_spans": len(items), "cluster_stats": cstats,
         "clusters": [{"cluster_id": c.cluster_id, "size": len(c.items), "pattern": c.pattern,
                       "labels": list(c.labels), "held_out": c.held_out,
                       "diagnosis": d.diagnosis if (d := diagnoses[c.cluster_id]) else None}

@@ -90,8 +90,6 @@ pipeline:
 
 clustering:   # SPEC section 2 + decisions 2026-11-08
   max_group_size: 50           # bigger key groups are re-split with embeddings
-  tiny_group_size: 3           # a group smaller than this is "tiny"
-  tiny_share_resplit: 0.5      # re-cluster tiny groups with embeddings when they are > this share
   distance_threshold: 0.25     # agglomerative clustering, cosine distance, average linkage
   min_cluster_for_rule: 3      # smaller clusters go to the review queue as single items
   max_clusters_per_run: 8      # top N clusters by size are processed; the rest -> review queue

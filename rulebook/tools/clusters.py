@@ -2,9 +2,11 @@
 
 A word is accepted when every labeler voted the same label at >= `accept_min_confidence`.
 Other words are disagreements; consecutive disagreement words in one line with the same vote
-pattern form a span (one cluster item). Items are grouped by (label set, normalized text);
-big groups, or too many tiny groups, are re-clustered with embeddings (average-linkage
-agglomerative clustering on cosine distance). Reads labelers' votes only, never v2.
+pattern form a span (one cluster item). Spans where every labeler voted the same label but
+someone was below the confidence bar go to the review queue as "low confidence". The rest are
+grouped by label set; a label set with more than `max_group_size` items is split with
+embeddings (average-linkage agglomerative clustering on cosine distance). Reads labelers'
+votes only, never v2.
 """
 
 from __future__ import annotations
@@ -88,6 +90,20 @@ def disagreement_spans(
     return accepted, items
 
 
+def split_low_confidence(items: list[Item], agents: list[str]) -> tuple[list[Item], list[Item]]:
+    """(unanimous-but-low-confidence spans, real disagreements)."""
+    low = [it for it in items if len(it.labels) == 1 and len(it.votes) == len(agents)]
+    return low, [it for it in items if it not in low]
+
+
+def top_patterns(items: list[Item], n: int = 3) -> str:
+    """The most common normalized texts in a group: 'total / grand total / jumlah'."""
+    counts: dict[str, int] = {}
+    for it in items:
+        counts[it.pattern] = counts.get(it.pattern, 0) + 1
+    return " / ".join(sorted(counts, key=lambda p: (-counts[p], p))[:n])
+
+
 def agglomerative(vectors: np.ndarray, threshold: float) -> list[int]:
     """Average-linkage clustering on cosine distance; stop when the closest pair is farther
     than `threshold`. Returns a cluster index per row."""
@@ -128,30 +144,17 @@ def _split(items: list[Item], embed: Embed, threshold: float) -> list[list[Item]
 
 
 def cluster_items(items: list[Item], embed: Embed, cfg: dict) -> tuple[list[list[Item]], dict]:
-    """Group by (label set, pattern); re-cluster big groups and, if too many groups are tiny,
-    the tiny ones (within the same label set). Largest first. Returns (groups, stats)."""
-    keyed: dict[tuple[tuple[str, ...], str], list[Item]] = {}
+    """Group by label set; split a label set bigger than `max_group_size` with embeddings.
+    Largest first. Returns (groups, stats)."""
+    by_labels: dict[tuple[str, ...], list[Item]] = {}
     for it in items:
-        keyed.setdefault((it.labels, it.pattern), []).append(it)
-    groups = list(keyed.values())
-    tiny = [g for g in groups if len(g) < cfg["tiny_group_size"]]
+        by_labels.setdefault(it.labels, []).append(it)
+    groups = list(by_labels.values())
     big = [g for g in groups if len(g) > cfg["max_group_size"]]
-    stats = {"key_groups": len(groups), "tiny_groups": len(tiny), "big_groups": len(big),
-             "resplit_big": bool(big), "resplit_tiny": False}
-
-    out = [g for g in groups if g not in big and g not in tiny]
+    stats = {"label_sets": len(groups), "big_groups": len(big)}
+    out = [g for g in groups if g not in big]
     for g in big:
         out += _split(g, embed, cfg["distance_threshold"])
-    if groups and len(tiny) / len(groups) > cfg["tiny_share_resplit"]:
-        stats["resplit_tiny"] = True
-        by_labels: dict[tuple[str, ...], list[Item]] = {}
-        for g in tiny:
-            for it in g:
-                by_labels.setdefault(it.labels, []).append(it)
-        for same in by_labels.values():
-            out += _split(same, embed, cfg["distance_threshold"])
-    else:
-        out += tiny
     out.sort(key=lambda g: (-len(g), g[0].item_id))
     return out, stats
 
@@ -165,7 +168,7 @@ def make_clusters(groups: list[list[Item]], cfg: dict) -> tuple[list[Cluster], l
     clusters = []
     rng = random.Random(cfg["seed"])
     for i, g in enumerate(chosen):
-        c = Cluster(i, g, g[0].labels, g[0].pattern)
+        c = Cluster(i, g, g[0].labels, top_patterns(g))
         if len(g) >= cfg["min_size_for_holdout"]:
             shuffled = sorted(g, key=lambda it: it.item_id)
             rng.shuffle(shuffled)

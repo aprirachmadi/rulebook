@@ -16,14 +16,15 @@ from rulebook.tools.clusters import (
     disagreement_spans,
     make_clusters,
     normalize,
+    split_low_confidence,
 )
 from rulebook.tools.labels import DocLine, DocWord, LabelDoc
 from rulebook.tools.verify import words_alpha
 
 ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ["labeler_a", "labeler_b", "labeler_c"]
-CFG = {"max_group_size": 50, "tiny_group_size": 3, "tiny_share_resplit": 0.5,
-       "distance_threshold": 0.25, "min_cluster_for_rule": 3, "max_clusters_per_run": 8,
+CFG = {"max_group_size": 50, "distance_threshold": 0.25, "min_cluster_for_rule": 3,
+       "max_clusters_per_run": 8,
        "holdout_fraction": 0.3, "min_size_for_holdout": 6, "seed": 0}
 
 
@@ -74,11 +75,27 @@ def fake_embed(texts: list[str]) -> np.ndarray:
     return np.array([[1.0, 0.0] if t.startswith("x") else [0.0, 1.0] for t in texts])
 
 
-def test_cluster_items_resplits_tiny_groups_by_embedding() -> None:
-    items = _items(1, "x1") + _items(1, "x2 pcs") + _items(1, "Total")  # all tiny
+def test_cluster_items_groups_by_label_set() -> None:
+    items = _items(2, "Nasi Goreng") + _items(1, "Es Teh") + _items(2, "TOTAL", ("c", "d"))
     groups, stats = cluster_items(items, fake_embed, CFG)
-    assert stats["resplit_tiny"]
-    assert sorted(len(g) for g in groups) == [1, 2]  # x1 + x2 pcs merged
+    assert stats == {"label_sets": 2, "big_groups": 0}
+    assert sorted(len(g) for g in groups) == [2, 3]  # different texts, same label set: merged
+
+
+def test_cluster_items_splits_big_label_sets_by_embedding() -> None:
+    items = _items(30, "x1") + _items(30, "Total")  # one label set of 60 > 50
+    groups, stats = cluster_items(items, fake_embed, CFG)
+    assert stats["big_groups"] == 1
+    assert sorted(len(g) for g in groups) == [30, 30]
+
+
+def test_split_low_confidence() -> None:
+    unanimous = Item("r1", 0, [0], "Nasi", "Nasi", _v("m.nm", "m.nm", "m.nm", conf=0.5),
+                     ("m.nm",), "nasi")
+    split = Item("r1", 1, [0], "2", "2", _v("m.cnt", "m.nm", "m.cnt"), ("m.cnt", "m.nm"), "#")
+    missing = Item("r1", 2, [0], "x", "x", {"labeler_a": ("m.nm", 0.9, "")}, ("m.nm",), "x")
+    low, rest = split_low_confidence([unanimous, split, missing], AGENTS)
+    assert low == [unanimous] and rest == [split, missing]
 
 
 def test_make_clusters_caps_and_holds_out() -> None:
