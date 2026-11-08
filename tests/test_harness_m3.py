@@ -231,7 +231,7 @@ def test_build_agent_needs_prompt_and_schema() -> None:
     with pytest.raises(AgentConfigError):
         build_agent("labeler_a", system_prompt="label")  # schema missing
     a = build_agent("labeler_a", system_prompt="label", output_schema=LabelBatch)
-    assert a.model == "qwen3.5:4b-8k" and a.temperature == 0
+    assert a.model == "qwen3.5:4b-8k" and a.temperature == 0  # labeler_a unchanged
     assert a.budget == 3000 and a.max_tokens == 4800
     assert a.preload_skills and a.skills == ["cord-guideline"]
 

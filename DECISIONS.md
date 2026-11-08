@@ -47,3 +47,4 @@
 | 2026-11-08 | First 20-receipt run: labeler failures | Fix before considering other models: add an "other" label (text CORD doesn't label: store name, date, address, cashier, footer); words labeled "other" excluded from accuracy vs v2, report each labeler's use of it |
 | 2026-11-08 | Chunking (spec change) | ~20 lines per labeler call; "reason" only when confidence < 0.7 |
 | 2026-11-08 | Repair | Targeted repair approved (re-ask only bad / missing words); fix the per-line word index bound |
+| 2026-11-08 | Labeler models after the 20-receipt runs | Replace nemotron-3-nano:4b (labeler_b) with llama3.1:8b and llama3.2:3b (labeler_c) with gemma4:12b (installed), both 8k tags; user pulled llama3.1:8b. Rerun the same 20 receipts |
