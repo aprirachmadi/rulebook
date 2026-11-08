@@ -3,12 +3,14 @@
 llm:
   base_url: http://localhost:11434/v1   # overridden by OLLAMA_BASE_URL if set
 
-# Spec defaults ([CONFIRM] in SPEC.md section 0). None are installed yet in Ollama.
 models:
+  # Chosen 2026-11-08: three small models from different families, ~8-9 GB total,
+  # so all three fit in VRAM at once (see DECISIONS.md).
   labelers:
-    labeler_a: qwen2.5:7b-instruct
-    labeler_b: llama3.1:8b-instruct
-    labeler_c: gemma2:9b
+    labeler_a: qwen3.5:4b
+    labeler_b: nemotron-3-nano:4b
+    labeler_c: llama3.2:3b
+  # Still the spec defaults below; not chosen yet and not installed in Ollama.
   orchestrator: qwen2.5:14b-instruct
   orchestrator_fallback: qwen2.5:7b-instruct
   vision: qwen2.5vl:7b

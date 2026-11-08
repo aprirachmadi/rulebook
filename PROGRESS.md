@@ -18,13 +18,13 @@
   - Reading order checked: only 2 lines change text vs CORD's own word order.
 
 ## In progress
-- Waiting for: guideline v1 approval, model choice, drive decision.
+- Waiting for: guideline v1 approval; orchestrator / vision / embedding model choice.
+- Labelers chosen: `qwen3.5:4b`, `nemotron-3-nano:4b`, `llama3.2:3b` (in `config.yaml`; user pulling).
 
 ## Next
 - Milestone 2: harness core (`model.py`, `tools.py`, `loop.py`, `trace.py`) + calculator toy agent.
 
 ## Open questions
 - Very rare classes: `void_menu.nm`, `void_menu.price`, `menu.itemsubtotal` have 1 train line each.
-- Models: proposal sent, waiting for OK (needed from M2).
-- Repo is on an NTFS (fuseblk) partition: keep, or move runtime files (db, runs) / the repo to ext4?
+- Models still open: orchestrator / diagnoser / rule writer, vision re-reads, embedding (spec defaults in config are not installed).
 - Two-row lines on tilted receipts read value-first (`2.000,00 Change:`), same as CORD's order. Fix or keep?

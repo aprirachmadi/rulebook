@@ -21,3 +21,5 @@
 | 2026-11-08 | Rare classes | Report overall accuracy + macro-F1; flag classes with < 5 eval lines as "too few to score" |
 | 2026-11-08 | Suspect-v2 definition | All 3 labelers at confidence >= 0.7, none matches v2, ranked by average confidence |
 | 2026-11-08 | Models | Report GPU/VRAM and propose; wait for OK |
+| 2026-11-08 | Repo on NTFS (fuseblk) drive | Not an issue (single machine, small data). Keep as is; revisit only if SQLite locking problems show up in M7 |
+| 2026-11-08 | Labeler models | `qwen3.5:4b`, `nemotron-3-nano:4b`, `llama3.2:3b` (three families, ~8–9 GB, all fit in VRAM at once). User pulling them. Orchestrator / vision / embedding models still open |
