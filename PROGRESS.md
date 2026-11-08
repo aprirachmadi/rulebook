@@ -49,8 +49,22 @@
   - Labelers preload the guideline into the system prompt; the loop warns (trace `warning` event) when prompt + skills exceed 80% of the budget.
   - `ocr_agent` temperature 0.
 
+- **Milestone 4 (OCR + labelers)**, built; first 20-receipt runs in progress:
+  - PaddleOCR 3.7.0 / paddlepaddle 3.3.1 CPU (no CUDA, no torch), PP-OCRv6 small models copied from crumb, offline. ~3.3 s/receipt, ~0.9 GB RAM. Results cached in `runs/ocr_cache/`.
+  - `rulebook/tools/ocr.py`: OCR words rebuilt from PaddleOCR tokens; OCR word -> CORD word by centre-in-box then text similarity. On train_0000-0019: 89% of OCR words matched, 86% of CORD words covered; the unmatched OCR text is mostly noise from CORD's masked regions.
+  - `rulebook/tools/labels.py`: `LabelDoc` for both modes (gold lines sorted top-to-bottom so CORD's annotation order can't hint at labels), `render()` (line idx, position 0-100, numbered words), per-receipt answer schema: label enum, bounded line/word indices, full non-overlapping coverage validator.
+  - Labelers run in structured mode (one call, JSON schema enforced), one model at a time; guideline preloaded from `skills/cord-guideline/SKILL.md` (generated from the current `guidelines/v<N>.md`).
+  - `rulebook/data/store.py` (SQLite: runs, docs, votes per word, label_failures), `rulebook/tools/stats.py` (word-level alpha, one-vs-rest alpha per label, agreement pattern), `rulebook run`, `eval/labeling_report.py`.
+  - Smoke runs on a 71-line receipt found and fixed: reply cap too small (answers cut off), repair prompts that pushed past the 8k window (now a fresh repair), llama inventing line numbers (now bounded in the schema), and alpha crashing with < 2 labelers.
+  - 114 tests passing.
+
+- First 20-receipt runs (train_0000-0019), reports in `reports/run_<id>_labeling.md`:
+  - gold 20261108-134252-9c093a: receipts passing validation a 15/20, b 4/20, c 0/20. Agreement with v2 on labeled words: qwen 84.9%, nemotron 17.1%, llama -. Alpha 0.031 (not meaningful: no word had all three votes).
+  - ocr 20261108-135346-832f4d: a 13/20, b 3/20, c 1/20. Agreement with v2: qwen 65.3%, nemotron 6.8%, llama 47.8% (23 words). Alpha 0.060 (same caveat). OCR misses 67/624 words.
+  - Failures are coverage errors (missed / doubled words, word index past the end of its line), not broken JSON. qwen's failed receipts miss 0-10 words; llama's 3-65.
+
 ## In progress
-- Milestone 4.
+- Stopped after the first runs as asked. Waiting for a decision on labeler failures / models before building anything else.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
@@ -65,3 +79,6 @@
 - Guideline v1 content, after the first real run.
 - The toy agent's tasks make the model read `Rp 12.500` itself, which the number rule now forbids for real agents. Fine for a harness test; don't copy that pattern.
 - Agent budgets: 6,000 (labelers) / 14,000 (gemma agents); `context_keep_turns` 4; VRAM headroom 1.5 GB. The chars/4 estimate ran ~25% above Ollama's real count in the 50-step run (safe direction).
+- Token estimate: chars/4 (SPEC) undercounts real labeler prompts ~2x (est 1.4k vs real 2.8k). The loop now also checks Ollama's real counts against the window.
+- VRAM estimates are conservative: nemotron-3-nano:4b-8k measured 3.0 GB in `ollama ps` (estimate 3.9).
+- Strict coverage ("every word exactly once", one full repair) is hard for the small labelers on long receipts. Options if the failure rate is high: targeted repair of only the missing words, or labeling long receipts in line chunks.
