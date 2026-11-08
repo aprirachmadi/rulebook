@@ -231,7 +231,8 @@ def test_build_agent_needs_prompt_and_schema() -> None:
     with pytest.raises(AgentConfigError):
         build_agent("labeler_a", system_prompt="label")  # schema missing
     a = build_agent("labeler_a", system_prompt="label", output_schema=LabelBatch)
-    assert a.model == "qwen3.5:4b" and a.temperature == 0 and a.skills == ["cord-guideline"]
+    assert a.model == "qwen3.5:4b-8k" and a.temperature == 0 and a.budget == 6000
+    assert a.preload_skills and a.skills == ["cord-guideline"]
 
 
 def test_build_agent_rejects_budget_over_window(tmp_path: Path) -> None:
@@ -239,3 +240,24 @@ def test_build_agent_rejects_budget_over_window(tmp_path: Path) -> None:
     p.write_text("defaults: {max_steps: 3, budget: 5000}\nagents:\n  x: {model: toy_agent}\n")
     with pytest.raises(AgentConfigError, match="context window"):
         build_agent("x", system_prompt="p", path=p)
+
+
+def test_preloaded_skill_goes_in_system_prompt(tmp_path: Path) -> None:
+    server = FakeServer(_reply(content="done"))
+    run(_agent(skills=["pemula"], preload_skills=True), "q", registry=ToolRegistry(),
+        client=server.client(), tracer=Tracer(runs_dir=tmp_path), skills=SkillLibrary(FIXTURES))
+    first = server.requests[0]
+    assert "The vault code" in first["messages"][0]["content"]
+    assert "load_skill" not in {t["function"]["name"] for t in first["tools"]}
+
+
+def test_warns_when_prompt_and_skills_near_budget(tmp_path: Path) -> None:
+    server = FakeServer(_reply(content="done"), _reply(content="done"))
+    tracer = Tracer(runs_dir=tmp_path)
+    big = _agent(system_prompt="guideline " * 1000, budget=3000)  # ~2,500 tokens > 80%
+    res = run(big, "q", registry=ToolRegistry(), client=server.client(), tracer=tracer)
+    assert res.warnings and "over 80%" in res.warnings[0]
+    assert read_trace(tracer.path)[0].event == "warning"
+    small = run(_agent(budget=3000), "q", registry=ToolRegistry(), client=server.client(),
+                tracer=Tracer(runs_dir=tmp_path))
+    assert small.warnings == []

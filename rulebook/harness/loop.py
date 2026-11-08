@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -19,6 +20,8 @@ from rulebook.harness.trace import Tracer
 
 FINAL_ANSWER = "final_answer"
 LOAD_SKILL = "load_skill"
+
+log = logging.getLogger(__name__)
 
 StopReason = Literal["final_answer", "no_tool_calls", "max_steps", "invalid_output"]
 
@@ -57,6 +60,7 @@ class AgentResult:
     skills_loaded: list[str] = field(default_factory=list)
     max_context_tokens: int = 0  # largest estimated context actually sent
     over_budget: bool = False  # True if any call had to be sent over the budget
+    warnings: list[str] = field(default_factory=list)
 
 
 def _parse_json(value: Any) -> Any:
@@ -90,16 +94,35 @@ def run(
 
     system_prompt = agent.system_prompt
     schemas = registry.schemas(agent.tools) + [_final_tool.schema()]
+    on_demand_tokens = 0  # skills the agent may still load, counted for the size warning
     if agent.skills:
         skills = skills or SkillLibrary()
-        system_prompt += "\n\n" + skills.catalog(agent.skills)
-        schemas.append(_skill_tool.schema())
+        if agent.preload_skills:
+            for s in skills.allowed(agent.skills):
+                system_prompt += f"\n\n# Skill: {s.name}\n\n{s.body}"
+        else:
+            system_prompt += "\n\n" + skills.catalog(agent.skills)
+            schemas.append(_skill_tool.schema())
+            on_demand_tokens = sum(len(s.body) for s in skills.allowed(agent.skills)) // 4
 
     messages: list[Message] = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": task},
     ]
     result = AgentResult(output=None, stop_reason="max_steps", steps=0, messages=messages)
+
+    if agent.budget:
+        # A growing guideline must never get cut silently: warn before the first call.
+        opening = estimate_tokens(messages, schemas) + on_demand_tokens
+        limit = hcfg["prompt_warn_fraction"] * agent.budget
+        if opening > limit:
+            msg = (
+                f"{agent.name}: prompt + skills ~{opening} tokens is over "
+                f"{hcfg['prompt_warn_fraction']:.0%} of the {agent.budget}-token budget"
+            )
+            result.warnings.append(msg)
+            log.warning(msg)
+            tracer.log(agent.name, 0, "warning", messages, result=msg, context_tokens=opening)
 
     def call(step: int, **kwargs: Any) -> ChatResponse:
         sent = messages

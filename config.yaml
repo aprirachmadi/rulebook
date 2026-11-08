@@ -12,6 +12,7 @@ temperature:
   labeler_a: 0
   labeler_b: 0
   labeler_c: 0
+  ocr_agent: 0
   verifier: 0
   rule_writer: 0.2
   diagnoser: 0.2
@@ -30,18 +31,35 @@ harness:
   context_window:
     default: 4096
     gemma4:12b-16k: 16384
+    qwen3.5:4b-8k: 8192
+    nemotron-3-nano:4b-8k: 8192
+    llama3.2:3b-8k: 8192
+  prompt_warn_fraction: 0.8    # warn when the opening prompt + skills exceed this share of the budget
+
+# VRAM guard (rulebook/harness/memory.py). Out-of-memory can take the desktop down, so:
+# one model loaded at a time, and a model only loads if free VRAM >= estimate + headroom.
+# Estimates = weights + KV cache at the tag's context + ~1 GB compute buffers, calculated
+# from `ollama show -v` (2026-11-08). A model without an estimate is refused.
+memory:
+  headroom_gb: 1.5
+  estimate_gb:
+    qwen3.5:4b: 4.5              # 3.4 + KV 0.13 @4k (8 of 32 layers attend)
+    qwen3.5:4b-8k: 4.7           # 3.4 + KV 0.25 @8k
+    nemotron-3-nano:4b-8k: 3.9   # 2.8 + KV 0.13 @8k (4 of 42 layers attend)
+    llama3.2:3b-8k: 3.9          # 2.0 + KV 0.88 @8k (all 28 layers)
+    gemma4:12b-16k: 9.8          # 8.0 + KV ~0.75 @16k (8 global + 40 sliding-window layers)
   runs_dir: runs
 
 models:
   # Chosen 2026-11-08: three small models from different families, ~8-9 GB total,
   # so all three fit in VRAM at once (see DECISIONS.md).
-  labelers:
-    labeler_a: qwen3.5:4b
-    labeler_b: nemotron-3-nano:4b
-    labeler_c: llama3.2:3b
+  labelers:   # -8k tags = same weights with num_ctx 8192 (Modelfile, created 2026-11-08)
+    labeler_a: qwen3.5:4b-8k
+    labeler_b: nemotron-3-nano:4b-8k
+    labeler_c: llama3.2:3b-8k
   # Chosen 2026-11-08 (user left the choice to Claude): installed, supports tools and vision.
-  orchestrator: gemma4:12b   # also diagnoser and rule writer
-  vision: gemma4:12b
+  orchestrator: gemma4:12b-16k   # also diagnoser, rule writer, verifier (16k context)
+  vision: gemma4:12b-16k         # same model as the orchestrator, so no extra load
   embedding: nomic-embed-text   # spec default; not pulled yet, needed from M5
   toy_agent: qwen3.5:4b         # M2 calculator agent
 

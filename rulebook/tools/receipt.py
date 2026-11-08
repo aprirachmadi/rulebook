@@ -6,6 +6,11 @@ A number token can be read two ways:
 Most shapes are valid in only one reading, or give the same value in both. The one shape
 that differs is a single separator followed by exactly 3 digits (`2.000`, `75,000`):
 2000 or 2.0, 75000 or 75. Those tokens are `ambiguous`.
+
+Money rule (approved 2026-11-08): money is never printed with 3 decimals, so for amounts a lone
+separator followed by exactly 3 digits is a thousands separator, whichever symbol it is.
+This is decided per token, not per receipt: 88/800 train receipts mix both styles.
+A receipt whose numbers then fail the sum check gets its numeric lines flagged, never guessed.
 """
 
 from __future__ import annotations
@@ -56,6 +61,19 @@ class NumberToken:
         return -v if self.negative else v
 
 
+def money_value(tok: NumberToken) -> float | None:
+    """Signed amount under the money rule."""
+    if tok.ambiguous:  # lone separator + exactly 3 digits -> thousands
+        return tok.value("dot" if "." in tok.digits else "comma")
+    return tok.value("dot")  # unambiguous: every valid reading agrees
+
+
+def parse_amount(text: str) -> float | None:
+    """The money amount on a line, as a number (None if the line holds no amount)."""
+    tok = amount_token(text)
+    return money_value(tok) if tok else None
+
+
 def find_numbers(text: str) -> list[NumberToken]:
     tokens = []
     for m in _TOKEN.finditer(text):
@@ -103,10 +121,8 @@ class SumCheck:
     suspicious: list[int] = field(default_factory=list)  # line indexes holding numbers
 
 
-def sum_check(
-    lines: list[tuple[str, str]], reading: Reading, tolerance: float | None = None
-) -> SumCheck:
-    """Check a receipt's arithmetic under one reading.
+def sum_check(lines: list[tuple[str, str]], tolerance: float | None = None) -> SumCheck:
+    """Check a receipt's arithmetic, with amounts parsed by the money rule.
 
     `lines` = (text, label) per line; labels come from labelers, not from the answer key.
     """
@@ -114,8 +130,7 @@ def sum_check(
     by_role: dict[str, list[tuple[int, float]]] = {}
     for idx, (text, label) in enumerate(lines):
         role = ROLE_OF_LABEL.get(label)
-        tok = amount_token(text) if role else None
-        v = tok.value(reading) if tok else None
+        v = parse_amount(text) if role else None
         if role and v is not None:
             by_role.setdefault(role, []).append((idx, abs(v)))
 

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from rulebook.config import ROOT, load_config
 
-Event = Literal["model", "tool", "approval", "final", "error"]
+Event = Literal["model", "tool", "approval", "warning", "final", "error"]
 
 
 class TraceRecord(BaseModel):

@@ -42,23 +42,26 @@
   - Bugs found by the live runs and fixed: rich markup swallowed `[a]`/`[e]`/`[r]` in the prompt and would swallow `[...]` in receipt text.
   - Found: Ollama serves only 4,096 tokens of context for `qwen3.5:4b` and `gemma4:12b` (server default) and silently drops the start of longer prompts. `config.yaml` `harness.context_window` records this; budgets are checked against it.
 
+- Milestone 3 accepted (2026-11-08). Follow-ups done:
+  - Number money rule (per token) in `receipt.py`: `money_value`, `parse_amount`; `sum_check` uses it. Mixed-style receipts now pass.
+  - Contexts: labelers use `-8k` tags (Modelfile `num_ctx 8192`, same weights), gemma agents `gemma4:12b-16k`. Budgets 6000 / 14000 leave room for replies.
+  - VRAM guard (`rulebook/harness/memory.py`): before a model's first call, unload every other loaded model, then refuse unless free VRAM >= estimate + 1.5 GB headroom. Estimates in `config.yaml` `memory.estimate_gb`, calculated from `ollama show -v`. Models without an estimate are refused.
+  - Labelers preload the guideline into the system prompt; the loop warns (trace `warning` event) when prompt + skills exceed 80% of the budget.
+  - `ocr_agent` temperature 0.
+
 ## In progress
-- Nothing. Waiting for the Milestone 3 review and the open decisions below.
+- Milestone 4.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
 
 ## Open questions
-- **Number resolution policy (blocking the resolver only).** The per-receipt rule makes 93/99 dev receipts "ambiguous". Proposal: per token, lone separator + 3 digits = thousands; sum check then verifies (89/99 dev pass) and flags lines when it fails. See `reports/number_policy_check.md`.
-- `ocr_agent` has no temperature in config (not in the instruction); it uses the model default until set.
-- **Context window.** Ollama serves 4,096 tokens for qwen3.5:4b and gemma4:12b. Fine for labelers (one receipt + guideline), tight for diagnoser / rule writer / orchestrator.
-- Verifier model is not set in SPEC; `agents.yaml` uses the orchestrator model for now.
+- `nomic-embed-text` is not in `ollama list` yet (needed in M5).
 - Very rare classes: `void_menu.nm`, `void_menu.price`, `menu.itemsubtotal` have 1 train line each.
-- `nemotron-3-nano:4b`, `llama3.2:3b`, `nomic-embed-text` not pulled yet (needed from M4 / M5).
 
 ## Revisit at M8
 - `reasoning_effort: none` (thinking off) for all models. Thinking may help the diagnoser / rule writer; it costs ~50x tokens.
 - Verifier thresholds (`max_gold_accuracy_drop` 0.01, `min_cluster_alpha_gain` 0.05).
 - Guideline v1 content, after the first real run.
 - The toy agent's tasks make the model read `Rp 12.500` itself, which the number rule now forbids for real agents. Fine for a harness test; don't copy that pattern.
-- Agent budgets: 3,000 tokens for all agents (`agents.yaml` defaults); `context_keep_turns` 4. The chars/4 estimate ran ~25% above Ollama's real count in the 50-step run (safe direction).
+- Agent budgets: 6,000 (labelers) / 14,000 (gemma agents); `context_keep_turns` 4; VRAM headroom 1.5 GB. The chars/4 estimate ran ~25% above Ollama's real count in the 50-step run (safe direction).

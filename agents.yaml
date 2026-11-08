@@ -4,7 +4,9 @@
 
 defaults:
   max_steps: 10
-  budget: 3000   # tokens (chars / 4); must stay below the model's context window
+  # Token budget (chars / 4) per call. Must stay below the model's context window, leaving
+  # room for the reply: labelers 6000 of 8192, gemma4:12b-16k agents 14000 of 16384.
+  budget: 14000
 
 agents:
   ocr_agent:
@@ -13,16 +15,22 @@ agents:
     skills: [indonesian-receipt-format]
   labeler_a:
     model: labelers.labeler_a
+    budget: 6000
+    preload_skills: true   # guideline goes in the system prompt; no tool call needed
     tools: [get_receipt_context]
     skills: [cord-guideline]
     output_schema: LabelBatch
   labeler_b:
     model: labelers.labeler_b
+    budget: 6000
+    preload_skills: true   # guideline goes in the system prompt; no tool call needed
     tools: [get_receipt_context]
     skills: [cord-guideline]
     output_schema: LabelBatch
   labeler_c:
     model: labelers.labeler_c
+    budget: 6000
+    preload_skills: true   # guideline goes in the system prompt; no tool call needed
     tools: [get_receipt_context]
     skills: [cord-guideline]
     output_schema: LabelBatch
@@ -35,7 +43,7 @@ agents:
     tools: [get_cluster, search_similar_lines, get_guideline]
     skills: [guideline-style, cord-guideline]
   verifier:
-    model: orchestrator   # not set in SPEC; open question
+    model: orchestrator
     tools: [simulate_patch, compute_alpha, run_gold_set, diff_labels]
     skills: [stats-checks]
   orchestrator:

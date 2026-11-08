@@ -96,7 +96,7 @@ receipt image
 - All Indonesian number parsing ("12.500" → 12500, "2.000,00" → 2000, "Rp") happens in code (`rulebook/tools/receipt.py`). Tools return parsed numbers.
 - Models never parse prices or do arithmetic.
 - CORD mixes formats ("53.000", "2.000,00", "38,000", "Rp 194,726"). The parser handles both. Where the reading is unclear it returns "ambiguous" instead of guessing.
-- How unclear readings are resolved per receipt: **pending decision** (see DECISIONS.md / PROGRESS.md).
+- Money rule, per token (not per receipt): a lone `.` or `,` followed by exactly 3 digits is a thousands separator. 88/800 train receipts mix both styles, so one reading per receipt would be wrong. Lines that then fail the sum check are flagged, never guessed. Analysis: `reports/number_policy_check.md`.
 
 ### Receipt sum check (tool)
 Parse prices (Indonesian format: `.` thousands separator, `,` decimal; strip `Rp`). Check sum(menu prices) − discounts + tax/service ≈ subtotal/total within 1%. Return which numeric lines are suspicious.

@@ -25,6 +25,7 @@ class Agent:
     budget: int | None = None  # token budget per call; see context.py
     output_schema: type[BaseModel] | None = None
     temperature: float | None = None  # from config.yaml `temperature`; None = model default
+    preload_skills: bool = False  # put full skill text in the system prompt (no load_skill)
 
 
 class AgentConfigError(ValueError):
@@ -82,4 +83,5 @@ def build_agent(
         budget=budget,
         output_schema=output_schema,
         temperature=agent_temperature(name),
+        preload_skills=bool(spec.get("preload_skills", False)),
     )

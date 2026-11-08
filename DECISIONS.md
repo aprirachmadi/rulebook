@@ -31,3 +31,8 @@
 | 2026-11-08 | Temperature | Per agent in config.yaml: 0 for labelers and verifier, 0.2 for rule writer, diagnoser, orchestrator (toy agent 0) |
 | 2026-11-08 | Number rule | All Indonesian number parsing in code; tools return parsed numbers; models never parse prices or do arithmetic. Handle both CORD formats; return "ambiguous" instead of guessing. Added to SPEC and CLAUDE.md |
 | 2026-11-08 | Model choices | Approved; locked before the final runs |
+| 2026-11-08 | Number resolution | Per token: a lone separator + exactly 3 digits = thousands. Lines that fail the sum check are flagged, never guessed |
+| 2026-11-08 | Context windows | 16k (`gemma4:12b-16k`) for orchestrator, diagnoser, rule writer, verifier. Labelers one model at a time with 8k (VRAM allows: ~3.9–4.7 GB each vs 14.8 GB free) |
+| 2026-11-08 | Prompt size check | Warn before a labeler call when receipt + guideline + skills exceed 80% of the budget |
+| 2026-11-08 | ocr_agent temperature | 0 |
+| 2026-11-08 | Memory safety | Calculate VRAM before running any model; one model loaded at a time; refuse a load that doesn't fit (user: OOM can kill the computer) |

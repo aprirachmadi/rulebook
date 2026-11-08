@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from rulebook.config import load_config
+from rulebook.harness.memory import MemoryGuard, default_guard
 
 Message = dict[str, Any]
 
@@ -96,6 +97,8 @@ class ModelClient:
         reasoning_effort: str | None = None,
         temperature: float | None = None,
         transport: httpx.BaseTransport | None = None,
+        guard: MemoryGuard | None = None,
+        use_guard: bool | None = None,
     ) -> None:
         cfg = load_config()["llm"]
         self.model = model
@@ -103,6 +106,10 @@ class ModelClient:
         self.backoff_s = cfg["backoff_s"] if backoff_s is None else backoff_s
         self.reasoning_effort = reasoning_effort or cfg.get("reasoning_effort")
         self.temperature = temperature
+        # The VRAM guard is on for real calls; tests with a fake transport skip it.
+        if use_guard is None:
+            use_guard = transport is None
+        self.guard = (guard or default_guard()) if use_guard else None
         self._http = httpx.Client(
             base_url=base_url or cfg["base_url"],
             timeout=timeout_s or cfg["timeout_s"],
@@ -128,6 +135,8 @@ class ModelClient:
         if self.temperature is not None:
             body["temperature"] = self.temperature
 
+        if self.guard is not None:
+            self.guard.prepare(self.model)
         start = time.perf_counter()
         data = self._post(body)
         latency = time.perf_counter() - start

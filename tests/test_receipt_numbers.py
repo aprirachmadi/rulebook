@@ -2,7 +2,13 @@
 
 import pytest
 
-from rulebook.tools.receipt import amount_token, find_numbers, read_number, sum_check
+from rulebook.tools.receipt import (
+    amount_token,
+    find_numbers,
+    parse_amount,
+    read_number,
+    sum_check,
+)
 
 
 @pytest.mark.parametrize(
@@ -81,23 +87,44 @@ CONSISTENT = [
 ]
 
 
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("TOTAL 43.636", 43636.0),  # lone separator + 3 digits = thousands
+        ("75,000", 75000.0),
+        ("KEMBALI 2.000", 2000.0),
+        ("Total. 35.000,00", 35000.0),
+        ("CHANGE 23,500.00", 23500.0),
+        ("Sub-Total 1,346,000", 1346000.0),
+        ("Rp 116000.00", 116000.0),
+        ("Kembali: 0,00", 0.0),
+        ("Discount: -9,545", -9545.0),
+        ("TAX 10.00 % 4.364", 4364.0),
+        ("Net Total: Rp 194,726", 194726.0),
+        ("Cheese Croquette", None),
+    ],
+)
+def test_parse_amount_money_rule(text: str, value: float | None) -> None:
+    assert parse_amount(text) == value
+
+
 def test_sum_check_passes_on_a_consistent_receipt() -> None:
-    res = sum_check(CONSISTENT, "dot")
+    res = sum_check(CONSISTENT)
     assert res.passed and res.suspicious == []
 
 
-def test_sum_check_cannot_tell_thousands_from_decimals() -> None:
-    """Documents a finding: if every amount is `d.ddd`, both readings pass (scale x1000)."""
-    assert sum_check(CONSISTENT, "dot").passed
-    assert sum_check(CONSISTENT, "comma").passed
+def test_sum_check_passes_on_a_mixed_receipt() -> None:
+    """train_0616 mixes `.` and `,` thousands; the per-token rule reads it correctly."""
+    res = sum_check(MIXED)
+    assert res.passed, res.checks
 
 
-def test_mixed_receipt_fails_under_any_single_reading() -> None:
-    """Documents a finding: 88/800 train receipts mix `.` and `,` thousands."""
-    for reading in ("dot", "comma"):
-        res = sum_check(MIXED, reading)
-        assert res.passed is False and res.suspicious == [0, 1, 2, 3, 4]
+def test_sum_check_flags_numeric_lines_when_it_fails() -> None:
+    wrong = [*CONSISTENT[:-1], ("GRAND TOTAL 66.800", "total.total_price")]  # off by 10,000
+    res = sum_check(wrong)
+    assert res.passed is False
+    assert res.suspicious == [1, 2, 3, 4, 5]  # every line holding a number, not line 0
 
 
 def test_sum_check_needs_item_lines() -> None:
-    assert sum_check([("TOTAL 45,500", "total.total_price")], "comma").passed is None
+    assert sum_check([("TOTAL 45,500", "total.total_price")]).passed is None
