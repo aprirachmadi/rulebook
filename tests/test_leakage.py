@@ -70,12 +70,39 @@ def test_only_allowed_modules_touch_raw_ground_truth() -> None:
         assert "category" not in names, f"{rel} reads line categories"
 
 
+def _imported_modules(path: Path) -> set[str]:
+    """Top-level package of every import, including `importlib.import_module("...")` literals."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            found.add(node.module.split(".")[0])
+        elif isinstance(node, ast.Import):
+            found.update(a.name.split(".")[0] for a in node.names)
+        elif (
+            isinstance(node, ast.Call)
+            and getattr(node.func, "attr", getattr(node.func, "id", None))
+            in {"import_module", "__import__"}
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+        ):
+            found.add(str(node.args[0].value).split(".")[0])
+    return found
+
+
 def test_rulebook_never_imports_eval() -> None:
     for path in _modules("rulebook"):
-        names = _names(path)
         rel = path.relative_to(ROOT).as_posix()
-        assert "eval" not in names, f"{rel} imports eval/"
-        assert "load_answer_key" not in names, f"{rel} uses the answer key"
+        assert "eval" not in _imported_modules(path), f"{rel} imports eval/"
+        assert "load_answer_key" not in _names(path), f"{rel} uses the answer key"
+
+
+def test_import_check_catches_dynamic_import(tmp_path: Path) -> None:
+    leaky = tmp_path / "leaky.py"
+    leaky.write_text("import importlib\nm = importlib.import_module('eval.answer_key')\n")
+    assert "eval" in _imported_modules(leaky)
+    ok = tmp_path / "ok.py"
+    ok.write_text("import ast\nast.parse('1+1', mode='eval')\n")
+    assert "eval" not in _imported_modules(ok)
 
 
 def test_detector_catches_a_leak(tmp_path: Path) -> None:

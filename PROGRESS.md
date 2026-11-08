@@ -17,14 +17,30 @@
   - `guidelines/v1.md` drafted (DRAFT, not approved): 15 classes defined, 14 listed by name only.
   - Reading order checked: only 2 lines change text vs CORD's own word order.
 
+- Guideline v1 approved as a starting draft. Models set in `config.yaml` (labelers by user; orchestrator / vision / toy agent `gemma4:12b` / `qwen3.5:4b` by Claude, left to Claude by user).
+- **Milestone 2 (harness core)**, ready for review:
+  - `rulebook/harness/model.py`: `ModelClient.chat(messages, tools, json_schema)` over httpx; retries with exponential backoff on network errors / 429 / 5xx (not other 4xx); native tool calls, with fallback parsing of `{"tool": ..., "args": ...}` blocks from text; `reasoning_effort` from config.
+  - `rulebook/harness/tools.py`: `@tool` decorator (one pydantic args model), registry, `run()` validates args, catches exceptions, truncates results over `tool_result_max_chars`; `needs_approval` tools are refused until the M3 guard exists.
+  - `rulebook/harness/trace.py`: `runs/<run_id>/trace.jsonl`, one record per model call / tool call / final / error; `read_trace()` validates every line.
+  - `rulebook/harness/loop.py`: loop until no tool calls, `final_answer`, or `max_steps`; tool allowlist per agent; `output_schema` validation with one repair retry (schema enforced, no tools).
+  - `rulebook/harness/agents.py`: `Agent` dataclass only (YAML loading in M3).
+  - `rulebook/pipeline/toy.py` + `rulebook toy-agent` CLI: calculator (AST-restricted, no `eval`) on 5 tasks; expected answers computed by Python; a task counts as solved only if the answer is correct AND equals a number the calculator returned.
+  - Tests: 37 passing (harness tests use a scripted fake endpoint).
+  - Live acceptance on `qwen3.5:4b`: 5 runs, 22/25 tasks solved; 5/5 in 2 runs, 4/5 in 3. All 3 misses are Indonesian number format (`12.500` read as 12.5; `12550` reported as `12.55`); traces valid in every run (20–24 records).
+
 ## In progress
-- Waiting for: guideline v1 approval; orchestrator / vision / embedding model choice.
-- Labelers chosen: `qwen3.5:4b`, `nemotron-3-nano:4b`, `llama3.2:3b` (in `config.yaml`; user pulling).
+- Nothing. Waiting for the Milestone 2 review.
 
 ## Next
-- Milestone 2: harness core (`model.py`, `tools.py`, `loop.py`, `trace.py`) + calculator toy agent.
+- Milestone 3: skills, context budget, approval guard; load agents from `agents.yaml`.
 
 ## Open questions
 - Very rare classes: `void_menu.nm`, `void_menu.price`, `menu.itemsubtotal` have 1 train line each.
-- Models still open: orchestrator / diagnoser / rule writer, vision re-reads, embedding (spec defaults in config are not installed).
-- Two-row lines on tilted receipts read value-first (`2.000,00 Change:`), same as CORD's order. Fix or keep?
+- `nemotron-3-nano:4b`, `llama3.2:3b`, `nomic-embed-text` not pulled yet (needed from M4 / M5).
+
+## Revisit at M8
+- Temperature: not set, so models use their defaults (qwen3.5: 1.0). Likely cause of the run-to-run variance in the toy agent; consider a `temperature` setting per role (e.g. low for labelers).
+- `reasoning_effort: none` (thinking off) for all models. Thinking may help the diagnoser / rule writer; it costs ~50x tokens.
+- Indonesian number format confuses small models (toy agent misses). Keep all price parsing in code (`sum_check`, export `value`), never ask a model to normalise numbers.
+- Verifier thresholds (`max_gold_accuracy_drop` 0.01, `min_cluster_alpha_gain` 0.05).
+- Guideline v1 content, after the first real run.

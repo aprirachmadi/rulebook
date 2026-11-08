@@ -23,3 +23,8 @@
 | 2026-11-08 | Models | Report GPU/VRAM and propose; wait for OK |
 | 2026-11-08 | Repo on NTFS (fuseblk) drive | Not an issue (single machine, small data). Keep as is; revisit only if SQLite locking problems show up in M7 |
 | 2026-11-08 | Labeler models | `qwen3.5:4b`, `nemotron-3-nano:4b`, `llama3.2:3b` (three families, ~8–9 GB, all fit in VRAM at once). User pulling them. Orchestrator / vision / embedding models still open |
+| 2026-11-08 | Guideline v1 | Approved as a starting draft; revisit after the first real run |
+| 2026-11-08 | Verifier | Simple config defaults: reject if gold accuracy drops > 1%; patches on classes with no gold lines marked "not gold-verified"; nothing more for now |
+| 2026-11-08 | Tilted two-row lines | No fix |
+| 2026-11-08 | Orchestrator / diagnoser / rule writer / vision / toy-agent models | User left it to Claude ("<your decision>"): `gemma4:12b` for orchestrator, diagnoser, rule writer and vision; `qwen3.5:4b` for the M2 toy agent; `nomic-embed-text` kept |
+| 2026-11-08 | Tuning questions | Log under "revisit at M8" in PROGRESS.md instead of asking, unless blocking |

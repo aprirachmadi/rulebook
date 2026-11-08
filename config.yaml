@@ -2,6 +2,14 @@
 
 llm:
   base_url: http://localhost:11434/v1   # overridden by OLLAMA_BASE_URL if set
+  timeout_s: 300
+  max_retries: 3
+  backoff_s: 1.0            # doubles each retry
+  reasoning_effort: none    # "none" turns thinking off (qwen3.5: ~35 vs ~1,900 tokens per call)
+
+harness:
+  tool_result_max_chars: 2000
+  runs_dir: runs
 
 models:
   # Chosen 2026-11-08: three small models from different families, ~8-9 GB total,
@@ -10,11 +18,17 @@ models:
     labeler_a: qwen3.5:4b
     labeler_b: nemotron-3-nano:4b
     labeler_c: llama3.2:3b
-  # Still the spec defaults below; not chosen yet and not installed in Ollama.
-  orchestrator: qwen2.5:14b-instruct
-  orchestrator_fallback: qwen2.5:7b-instruct
-  vision: qwen2.5vl:7b
-  embedding: nomic-embed-text
+  # Chosen 2026-11-08 (user left the choice to Claude): installed, supports tools and vision.
+  orchestrator: gemma4:12b   # also diagnoser and rule writer
+  vision: gemma4:12b
+  embedding: nomic-embed-text   # spec default; not pulled yet, needed from M5
+  toy_agent: qwen3.5:4b         # M2 calculator agent
+
+verifier:
+  # Simple defaults; tune at M8.
+  max_gold_accuracy_drop: 0.01   # reject a patch if gold-set accuracy drops by more than this
+  min_cluster_alpha_gain: 0.05   # SPEC section 4 revert rule
+  # Patches on classes with no gold lines are marked "not gold-verified".
 
 data:
   dataset: naver-clova-ix/cord-v2
