@@ -28,3 +28,6 @@
 | 2026-11-08 | Tilted two-row lines | No fix |
 | 2026-11-08 | Orchestrator / diagnoser / rule writer / vision / toy-agent models | User left it to Claude ("<your decision>"): `gemma4:12b` for orchestrator, diagnoser, rule writer and vision; `qwen3.5:4b` for the M2 toy agent; `nomic-embed-text` kept |
 | 2026-11-08 | Tuning questions | Log under "revisit at M8" in PROGRESS.md instead of asking, unless blocking |
+| 2026-11-08 | Temperature | Per agent in config.yaml: 0 for labelers and verifier, 0.2 for rule writer, diagnoser, orchestrator (toy agent 0) |
+| 2026-11-08 | Number rule | All Indonesian number parsing in code; tools return parsed numbers; models never parse prices or do arithmetic. Handle both CORD formats; return "ambiguous" instead of guessing. Added to SPEC and CLAUDE.md |
+| 2026-11-08 | Model choices | Approved; locked before the final runs |

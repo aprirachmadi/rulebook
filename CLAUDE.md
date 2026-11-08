@@ -34,6 +34,7 @@ Write every decision I make into `DECISIONS.md` (date, question, answer).
 - **No leakage.** Agents, tools, prompts and skills must never read CORD v2 labels for the work or eval sets. Only `eval/` reads them, after a run.
 - **No fake results.** Never hardcode, mock or estimate numbers that should come from a real run. If something can't run, say so.
 - **No hardcoded models or thresholds.** They live in `config.yaml`.
+- **Numbers are parsed in code.** All Indonesian number parsing ("12.500" → 12500, "2.000,00" → 2000, "Rp") happens in `rulebook/tools/receipt.py`; tools return parsed numbers. Models never parse prices or do arithmetic. If a reading is unclear, return "ambiguous", never guess.
 - **Git:** commit freely, in small commits with clear messages, after tests pass. Don't push unless I ask.
 
 ## Environment (Poetry)

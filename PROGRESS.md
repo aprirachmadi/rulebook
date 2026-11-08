@@ -28,19 +28,25 @@
   - Tests: 37 passing (harness tests use a scripted fake endpoint).
   - Live acceptance on `qwen3.5:4b`: 5 runs, 22/25 tasks solved; 5/5 in 2 runs, 4/5 in 3. All 3 misses are Indonesian number format (`12.500` read as 12.5; `12550` reported as `12.55`); traces valid in every run (20–24 records).
 
+- Milestone 2 accepted (2026-11-08).
+- Temperature per agent (`config.yaml` `temperature`). Toy agent at temperature 0: 5/5 in all 5 runs, and the 5 traces are identical (same tool calls and results), so it is one repeated sample, not 5 independent ones.
+- Number rule in SPEC.md and CLAUDE.md. `rulebook/tools/receipt.py`: token parser with both readings, `amount_token`, `sum_check` (1% from config). 26 tests with real CORD strings. Policy comparison: `reports/number_policy_check.md`.
+
 ## In progress
-- Nothing. Waiting for the Milestone 2 review.
+- Milestone 3.
+- Blocked on a decision: how to resolve ambiguous number tokens per receipt (see open questions). Not built until answered.
 
 ## Next
 - Milestone 3: skills, context budget, approval guard; load agents from `agents.yaml`.
 
 ## Open questions
+- **Number resolution policy (blocking the resolver only).** The per-receipt rule makes 93/99 dev receipts "ambiguous". Proposal: per token, lone separator + 3 digits = thousands; sum check then verifies (89/99 dev pass) and flags lines when it fails. See `reports/number_policy_check.md`.
+- `ocr_agent` has no temperature in config (not in the instruction); it uses the model default until set.
 - Very rare classes: `void_menu.nm`, `void_menu.price`, `menu.itemsubtotal` have 1 train line each.
 - `nemotron-3-nano:4b`, `llama3.2:3b`, `nomic-embed-text` not pulled yet (needed from M4 / M5).
 
 ## Revisit at M8
-- Temperature: not set, so models use their defaults (qwen3.5: 1.0). Likely cause of the run-to-run variance in the toy agent; consider a `temperature` setting per role (e.g. low for labelers).
 - `reasoning_effort: none` (thinking off) for all models. Thinking may help the diagnoser / rule writer; it costs ~50x tokens.
-- Indonesian number format confuses small models (toy agent misses). Keep all price parsing in code (`sum_check`, export `value`), never ask a model to normalise numbers.
 - Verifier thresholds (`max_gold_accuracy_drop` 0.01, `min_cluster_alpha_gain` 0.05).
 - Guideline v1 content, after the first real run.
+- The toy agent's tasks make the model read `Rp 12.500` itself, which the number rule now forbids for real agents. Fine for a harness test; don't copy that pattern.

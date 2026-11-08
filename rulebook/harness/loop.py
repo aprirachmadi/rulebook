@@ -64,7 +64,7 @@ def run(
     tracer: Tracer | None = None,
 ) -> AgentResult:
     registry = registry or default_registry
-    client = client or ModelClient(agent.model)
+    client = client or ModelClient(agent.model, temperature=agent.temperature)
     tracer = tracer or Tracer()
     max_chars = load_config()["harness"]["tool_result_max_chars"]
     schemas = registry.schemas(agent.tools) + [_final_tool.schema()]

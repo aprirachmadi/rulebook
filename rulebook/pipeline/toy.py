@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
 
-from rulebook.config import load_config
+from rulebook.config import agent_temperature, load_config
 from rulebook.harness.agents import Agent
 from rulebook.harness.loop import AgentResult, run
 from rulebook.harness.tools import ToolRegistry, tool
@@ -147,6 +147,7 @@ def run_toy(model: str | None = None) -> tuple[Tracer, list[TaskOutcome]]:
         tools=["calculator"],
         max_steps=8,
         output_schema=Answer,
+        temperature=agent_temperature("toy_calculator"),
     )
     tracer = Tracer()
     outcomes = []

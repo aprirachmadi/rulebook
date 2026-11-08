@@ -17,3 +17,4 @@ class Agent:
     max_steps: int = 10
     budget: int | None = None  # token budget; enforced by context.py (Milestone 3)
     output_schema: type[BaseModel] | None = None
+    temperature: float | None = None  # from config.yaml `temperature`; None = model default

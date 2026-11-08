@@ -138,8 +138,9 @@ def test_client_error_is_not_retried() -> None:
 
 def test_request_body_carries_schema_and_reasoning_effort() -> None:
     server = FakeServer(_reply(content="{}"))
-    server.client(reasoning_effort="none").chat([], json_schema={"type": "object"})
+    server.client(reasoning_effort="none", temperature=0).chat([], json_schema={"type": "object"})
     body = server.requests[0]
+    assert body["temperature"] == 0
     assert body["response_format"]["json_schema"]["schema"] == {"type": "object"}
     assert body["reasoning_effort"] == "none"
 
@@ -276,3 +277,18 @@ def test_toy_outcome_requires_grounded_answer() -> None:
     assert safe_eval("(2 + 3) * 4 / 5") == 4.0
     with pytest.raises(ValueError):
         safe_eval("__import__('os')")
+
+
+def test_temperature_omitted_when_unset() -> None:
+    server = FakeServer(_reply(content="x"))
+    server.client().chat([])
+    assert "temperature" not in server.requests[0]
+
+
+def test_agent_temperatures_from_config() -> None:
+    from rulebook.config import agent_temperature
+
+    assert [agent_temperature(f"labeler_{x}") for x in "abc"] == [0, 0, 0]
+    assert agent_temperature("verifier") == 0
+    assert {agent_temperature(n) for n in ("rule_writer", "diagnoser", "orchestrator")} == {0.2}
+    assert agent_temperature("unknown_agent") is None

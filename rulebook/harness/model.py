@@ -94,6 +94,7 @@ class ModelClient:
         max_retries: int | None = None,
         backoff_s: float | None = None,
         reasoning_effort: str | None = None,
+        temperature: float | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         cfg = load_config()["llm"]
@@ -101,6 +102,7 @@ class ModelClient:
         self.max_retries = cfg["max_retries"] if max_retries is None else max_retries
         self.backoff_s = cfg["backoff_s"] if backoff_s is None else backoff_s
         self.reasoning_effort = reasoning_effort or cfg.get("reasoning_effort")
+        self.temperature = temperature
         self._http = httpx.Client(
             base_url=base_url or cfg["base_url"],
             timeout=timeout_s or cfg["timeout_s"],
@@ -123,6 +125,8 @@ class ModelClient:
             }
         if self.reasoning_effort:
             body["reasoning_effort"] = self.reasoning_effort
+        if self.temperature is not None:
+            body["temperature"] = self.temperature
 
         start = time.perf_counter()
         data = self._post(body)

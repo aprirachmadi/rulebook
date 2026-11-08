@@ -92,6 +92,12 @@ receipt image
 2. If a key group has > 50 lines or there are too many tiny groups, sub‑cluster with embeddings (`nomic-embed-text`) + agglomerative clustering (cosine, distance threshold 0.25).
 3. Only clusters with ≥ 3 lines go to the Rule writer. Smaller ones go to the review queue as single items.
 
+### Number rule (hard rule)
+- All Indonesian number parsing ("12.500" → 12500, "2.000,00" → 2000, "Rp") happens in code (`rulebook/tools/receipt.py`). Tools return parsed numbers.
+- Models never parse prices or do arithmetic.
+- CORD mixes formats ("53.000", "2.000,00", "38,000", "Rp 194,726"). The parser handles both. Where the reading is unclear it returns "ambiguous" instead of guessing.
+- How unclear readings are resolved per receipt: **pending decision** (see DECISIONS.md / PROGRESS.md).
+
 ### Receipt sum check (tool)
 Parse prices (Indonesian format: `.` thousands separator, `,` decimal; strip `Rp`). Check sum(menu prices) − discounts + tax/service ≈ subtotal/total within 1%. Return which numeric lines are suspicious.
 
