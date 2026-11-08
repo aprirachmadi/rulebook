@@ -23,7 +23,8 @@ LOAD_SKILL = "load_skill"
 
 log = logging.getLogger(__name__)
 
-StopReason = Literal["final_answer", "no_tool_calls", "max_steps", "invalid_output"]
+StopReason = Literal["final_answer", "no_tool_calls", "max_steps", "forced_final",
+                     "invalid_output"]
 
 
 class _FinalAnswerArgs(BaseModel):
@@ -208,6 +209,17 @@ def run(
         if done:
             break
 
+    if not done and agent.output_schema is not None:
+        # Out of steps: one last structured call so the work so far is not lost.
+        messages.append({"role": "user", "content": "You have used all your steps. Give your "
+                         "final answer now, as JSON only, based on what you have seen."})
+        tracer.log(agent.name, result.steps, "warning", messages,
+                   result="max_steps: forcing answer")
+        resp = call(result.steps, json_schema=agent.output_schema.model_json_schema())
+        messages.append(resp.assistant_message())
+        final, result.stop_reason, done = resp.content, "forced_final", True
+        result.warnings.append(f"{agent.name}: hit max_steps ({agent.max_steps}); answer forced")
+        structured = True  # a failed forced answer gets the fresh structured repair below
     if not done:
         tracer.log(agent.name, result.steps, "error", messages, result="max_steps reached")
         return result

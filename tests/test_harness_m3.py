@@ -306,3 +306,22 @@ def test_warns_when_real_prompt_plus_reply_cap_exceeds_window(tmp_path: Path) ->
     res = run(_agent(model="fake"), "q", registry=ToolRegistry(),
               client=server.client(max_tokens=500), tracer=Tracer(runs_dir=tmp_path))
     assert any("exceeds the 4096-token window" in w for w in res.warnings)
+
+
+def test_max_steps_forces_a_final_structured_answer(tmp_path: Path) -> None:
+    class Out(BaseModel):
+        value: int
+
+    reg = ToolRegistry()
+
+    @tool("peek", "Look.", registry=reg)
+    def peek(a: PageArgs) -> str:
+        return "seen"
+
+    calls = [_reply(tool_calls=[{"name": "peek", "args": {"page": i}}]) for i in range(3)]
+    server = FakeServer(*calls, _reply(content='{"value": 7}'))
+    res = run(_agent(tools=["peek"], max_steps=3, output_schema=Out), "q", registry=reg,
+              client=server.client(), tracer=Tracer(runs_dir=tmp_path))
+    assert res.output == Out(value=7) and res.stop_reason == "forced_final"
+    last = server.requests[-1]
+    assert "tools" not in last and "used all your steps" in last["messages"][-1]["content"]
