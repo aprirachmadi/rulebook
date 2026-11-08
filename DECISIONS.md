@@ -36,3 +36,11 @@
 | 2026-11-08 | Prompt size check | Warn before a labeler call when receipt + guideline + skills exceed 80% of the budget |
 | 2026-11-08 | ocr_agent temperature | 0 |
 | 2026-11-08 | Memory safety | Calculate VRAM before running any model; one model loaded at a time; refuse a load that doesn't fit (user: OOM can kill the computer) |
+| 2026-11-08 | OCR install | paddleocr 3.7.0 + paddlepaddle 3.3.1 CPU (no CUDA, no torch), PyYAML loosened to >=6.0.2 for paddlex; PP-OCRv6 small det/rec copied from crumb; offline (model source check disabled) |
+| 2026-11-08 | M4 A: OCR setup | Approved as above |
+| 2026-11-08 | M4 B: labeling unit | Labelers label word spans inside OCR lines: input = each OCR line with numbered words; output = [{line_idx, words: [indices], label, confidence, reason}]; every word exactly one label (validate, one repair retry). Scoring and alpha at word level: OCR word -> CORD word by center-in-box, then text similarity; that word's v2 label. Unmatched words = OCR misses. Same format in gold-text mode with CORD's words |
+| 2026-11-08 | M4 C: OCR agent | Plain code in M4; vision re-read agent in M5 |
+| 2026-11-08 | M4 D: receipt selection | First N by id for dev runs; final report uses a fixed-seed random sample |
+| 2026-11-08 | M4 E: labeler input | Line index, numbered words, rough position (0–100), answer format as in B |
+| 2026-11-08 | Embedding model | Pull nomic-embed-text |
+| 2026-11-08 | After first 20-receipt run | Show word-level alpha and each labeler's agreement with v2 before building anything else |

@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
-from rulebook.config import load_config
+from rulebook.config import context_window, load_config
 from rulebook.harness.agents import Agent
 from rulebook.harness.context import compact, estimate_tokens
 from rulebook.harness.guard import Approver
@@ -61,6 +61,7 @@ class AgentResult:
     max_context_tokens: int = 0  # largest estimated context actually sent
     over_budget: bool = False  # True if any call had to be sent over the budget
     warnings: list[str] = field(default_factory=list)
+    raw_failures: list[str] = field(default_factory=list)  # full text of rejected answers
 
 
 def _parse_json(value: Any) -> Any:
@@ -87,7 +88,8 @@ def run(
     approver: Approver | None = None,
 ) -> AgentResult:
     registry = registry or default_registry
-    client = client or ModelClient(agent.model, temperature=agent.temperature)
+    client = client or ModelClient(agent.model, temperature=agent.temperature,
+                                   max_tokens=agent.max_tokens)
     tracer = tracer or Tracer()
     hcfg = load_config()["harness"]
     max_chars = hcfg["tool_result_max_chars"]
@@ -134,6 +136,15 @@ def run(
         resp = client.chat(sent, **kwargs)
         result.prompt_tokens += resp.prompt_tokens
         result.completion_tokens += resp.completion_tokens
+        # Real token counts from the server: warn if prompt + reply cap could not fit the window
+        # (that is when Ollama silently drops the start of the prompt).
+        window, cap = context_window(agent.model), client.max_tokens or 0
+        if resp.prompt_tokens and resp.prompt_tokens + cap > window:
+            msg = (f"{agent.name}: real prompt {resp.prompt_tokens} + reply cap {cap} tokens "
+                   f"exceeds the {window}-token window of {agent.model}")
+            result.warnings.append(msg)
+            log.warning(msg)
+            tracer.log(agent.name, step, "warning", sent, result=msg)
         tracer.log(
             agent.name,
             step,
@@ -167,11 +178,22 @@ def run(
         tracer.log(agent.name, step, "tool", messages, tool=name, args=args, result=content)
         return content
 
+    # Structured mode: no tools and an output schema -> one call with the JSON schema enforced
+    # (labelers). Otherwise the normal tool loop.
+    structured = agent.output_schema is not None and not agent.tools and LOAD_SKILL not in {
+        s["function"]["name"] for s in schemas
+    }
+    call_kwargs: dict[str, Any] = (
+        {"json_schema": agent.output_schema.model_json_schema()}  # type: ignore[union-attr]
+        if structured
+        else {"tools": schemas}
+    )
+
     final: Any = None
     done = False
     for step in range(1, agent.max_steps + 1):
         result.steps = step
-        resp = call(step, tools=schemas)
+        resp = call(step, **call_kwargs)
         messages.append(resp.assistant_message())
         if not resp.tool_calls:
             final, result.stop_reason, done = resp.content, "no_tool_calls", True
@@ -195,18 +217,25 @@ def run(
             final = _validate(agent.output_schema, final)
         except ValidationError as e:
             # One repair retry: ask again with the schema enforced and no tools.
-            messages.append(
-                {
-                    "role": "user",
-                    "content": "Your final answer did not match the required format: "
-                    f"{e.errors()[:3]}. Reply with only the JSON object.",
-                }
-            )
+            if resp.finish_reason == "length":
+                problem = ("Your answer was cut off because it was too long. Answer again, "
+                           "complete, with much shorter reasons (at most 5 words).")
+            else:
+                problem = (f"Your final answer did not match the required format: "
+                           f"{str(e)[:1500]}. Reply with only the corrected JSON object.")
+            result.raw_failures.append(str(final)[:20000])
+            if structured:
+                # Start fresh: a long rejected answer in the history can push the prompt past
+                # the context window (seen live: 7.5k-token repair prompts on an 8k window).
+                del messages[2:]
+                problem = "Your previous answer was rejected. " + problem
+            messages.append({"role": "user", "content": problem})
             resp = call(result.steps, json_schema=agent.output_schema.model_json_schema())
             messages.append(resp.assistant_message())
             try:
                 final = _validate(agent.output_schema, resp.content)
             except ValidationError as e2:
+                result.raw_failures.append(resp.content[:20000])
                 result.stop_reason, result.error = "invalid_output", str(e2)
                 tracer.log(agent.name, result.steps, "error", messages, result=str(e2))
                 return result

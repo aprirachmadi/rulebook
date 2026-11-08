@@ -44,7 +44,12 @@ Each sample has an image and a `ground_truth` JSON string. Inside `gt` → `vali
 `category` (e.g. `menu.nm`, `menu.price`, `sub_total.subtotal_price`, `total.total_price`), `group_id`, `sub_group_id`,
 and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 
-### Unit of labeling = one `valid_line`
+### Unit of labeling = word spans inside a line (decided 2026-11-08, replaces "one valid_line")
+- OCR mode: the unit shown to labelers is one OCR text line with numbered words. Labelers return spans `[{line_idx, words: [word indices], label, confidence, reason}]`; every word gets exactly one label (validated, one repair retry).
+- Gold-text mode: the same format over CORD lines and CORD words.
+- Scoring and alpha are at **word level**. Each OCR word is matched to a CORD word (word centre inside the CORD word box, then text similarity) and takes that CORD word's v2 label (its line's `category`). Unmatched OCR words count as OCR misses.
+
+### CORD lines (still used for gold text and matching)
 - `line_text` = words joined with spaces, in reading order: rows top to bottom (by mean top edge of each `row_id`), words left to right within a row. Use the same ordering whenever OCR text is compared against CORD text.
 - `line_box` = union of the word quads.
 - Label space = the set of `category` values that actually appear in the data. **Derive it from the data**, don't hardcode. Expect ~30.
@@ -66,8 +71,8 @@ and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 
 ```
 receipt image
-  → OCR agent: PaddleOCR → lines (text, box, conf); match OCR lines to CORD lines by IoU ≥ 0.5
-  → 3 Labeler agents: each labels every line using guideline vN (JSON output, label + confidence 0–1)
+  → OCR: PaddleOCR (CPU) → lines with word boxes (text, box, conf); match OCR words to CORD words (centre-in-box, then text similarity)
+  → 3 Labeler agents, one model loaded at a time: each labels every word (as spans) using guideline vN (JSON output, label + confidence 0–1)
   → agreement: Krippendorff's alpha (nominal) per batch, per label; per‑line vote pattern
   → lines where all 3 agree with confidence ≥ 0.7 → accepted
   → disagreements → clustering → Diagnoser classifies each cluster:
@@ -181,7 +186,7 @@ SQLite `rulebook.db`: `receipts`, `lines` (text, box, ocr_conf, text_source), `v
 
 ## 8. Milestones (acceptance criteria)
 
-Dev runs use 20–50 receipts. The full 800‑receipt work set is only for the final report.
+Dev runs use 20–50 receipts, the first N by id. The full 800‑receipt work set is only for the final report; the final report uses a fixed‑seed random sample.
 
 1. **Data**: v2 loader, line extraction, answer key, leakage test. ✅ when `reports/cord_v2_summary.md` exists and tests pass.
 2. **Harness core**: `model.py`, `tools.py`, `loop.py`, `trace.py`. ✅ when a toy agent with a `calculator` tool solves 5 tasks on a local model and the trace file is valid.

@@ -231,7 +231,8 @@ def test_build_agent_needs_prompt_and_schema() -> None:
     with pytest.raises(AgentConfigError):
         build_agent("labeler_a", system_prompt="label")  # schema missing
     a = build_agent("labeler_a", system_prompt="label", output_schema=LabelBatch)
-    assert a.model == "qwen3.5:4b-8k" and a.temperature == 0 and a.budget == 6000
+    assert a.model == "qwen3.5:4b-8k" and a.temperature == 0
+    assert a.budget == 3000 and a.max_tokens == 4800
     assert a.preload_skills and a.skills == ["cord-guideline"]
 
 
@@ -261,3 +262,47 @@ def test_warns_when_prompt_and_skills_near_budget(tmp_path: Path) -> None:
     small = run(_agent(budget=3000), "q", registry=ToolRegistry(), client=server.client(),
                 tracer=Tracer(runs_dir=tmp_path))
     assert small.warnings == []
+
+
+def test_structured_mode_sends_schema_not_tools(tmp_path: Path) -> None:
+    class Out(BaseModel):
+        value: int
+
+    server = FakeServer(_reply(content='{"value": 3}'))
+    res = run(_agent(output_schema=Out), "q", registry=ToolRegistry(), client=server.client(),
+              tracer=Tracer(runs_dir=tmp_path))
+    assert res.output == Out(value=3) and res.steps == 1
+    body = server.requests[0]
+    assert "tools" not in body
+    assert body["response_format"]["json_schema"]["schema"]["title"] == "Out"
+
+
+def test_every_agent_budget_plus_reply_fits_window() -> None:
+    from rulebook.config import context_window, load_config
+
+    default_reply = load_config()["llm"]["max_tokens"]
+    for name, spec in load_specs().items():
+        reply = spec.get("max_tokens") or default_reply
+        assert spec["budget"] + reply <= context_window(resolve_model(spec["model"])), name
+
+
+def test_cut_off_answer_gets_a_shorter_repair_prompt(tmp_path: Path) -> None:
+    class Out(BaseModel):
+        value: int
+
+    cut = _reply(content='{"val')
+    cut["choices"][0]["finish_reason"] = "length"
+    server = FakeServer(cut, _reply(content='{"value": 1}'))
+    res = run(_agent(output_schema=Out), "q", registry=ToolRegistry(), client=server.client(),
+              tracer=Tracer(runs_dir=tmp_path))
+    assert res.output == Out(value=1) and res.raw_failures == ['{"val']
+    assert "cut off" in server.requests[1]["messages"][-1]["content"]
+
+
+def test_warns_when_real_prompt_plus_reply_cap_exceeds_window(tmp_path: Path) -> None:
+    big = _reply(content="ok")
+    big["usage"]["prompt_tokens"] = 4000  # fake model window: config default 4096
+    server = FakeServer(big)
+    res = run(_agent(model="fake"), "q", registry=ToolRegistry(),
+              client=server.client(max_tokens=500), tracer=Tracer(runs_dir=tmp_path))
+    assert any("exceeds the 4096-token window" in w for w in res.warnings)

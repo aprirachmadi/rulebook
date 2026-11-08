@@ -6,6 +6,7 @@ llm:
   max_retries: 3
   backoff_s: 1.0            # doubles each retry
   reasoning_effort: none    # "none" turns thinking off (qwen3.5: ~35 vs ~1,900 tokens per call)
+  max_tokens: 3500          # reply cap; prompt budget + this must fit the context window
 
 # Sampling temperature per agent (by agent name). Agents not listed use the model's default.
 temperature:
@@ -35,6 +36,7 @@ harness:
     nemotron-3-nano:4b-8k: 8192
     llama3.2:3b-8k: 8192
   prompt_warn_fraction: 0.8    # warn when the opening prompt + skills exceed this share of the budget
+  runs_dir: runs
 
 # VRAM guard (rulebook/harness/memory.py). Out-of-memory can take the desktop down, so:
 # one model loaded at a time, and a model only loads if free VRAM >= estimate + headroom.
@@ -48,7 +50,6 @@ memory:
     nemotron-3-nano:4b-8k: 3.9   # 2.8 + KV 0.13 @8k (4 of 42 layers attend)
     llama3.2:3b-8k: 3.9          # 2.0 + KV 0.88 @8k (all 28 layers)
     gemma4:12b-16k: 9.8          # 8.0 + KV ~0.75 @16k (8 global + 40 sliding-window layers)
-  runs_dir: runs
 
 models:
   # Chosen 2026-11-08: three small models from different families, ~8-9 GB total,
@@ -68,6 +69,15 @@ verifier:
   max_gold_accuracy_drop: 0.01   # reject a patch if gold-set accuracy drops by more than this
   min_cluster_alpha_gain: 0.05   # SPEC section 4 revert rule
   # Patches on classes with no gold lines are marked "not gold-verified".
+
+ocr:   # PaddleOCR on CPU (no VRAM), local models copied from crumb, offline
+  model_dir: models/ocr
+  det_model: PP-OCRv6_small_det
+  rec_model: PP-OCRv6_small_rec
+  cpu_threads: 4
+
+storage:
+  db_path: rulebook.db
 
 sum_check:
   tolerance: 0.01   # SPEC section 2: within 1%

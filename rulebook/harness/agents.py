@@ -26,6 +26,7 @@ class Agent:
     output_schema: type[BaseModel] | None = None
     temperature: float | None = None  # from config.yaml `temperature`; None = model default
     preload_skills: bool = False  # put full skill text in the system prompt (no load_skill)
+    max_tokens: int | None = None  # reply cap; None = config llm.max_tokens
 
 
 class AgentConfigError(ValueError):
@@ -84,4 +85,5 @@ def build_agent(
         output_schema=output_schema,
         temperature=agent_temperature(name),
         preload_skills=bool(spec.get("preload_skills", False)),
+        max_tokens=spec.get("max_tokens"),
     )

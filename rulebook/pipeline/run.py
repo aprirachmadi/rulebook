@@ -47,10 +47,17 @@ def toy_agent(model: str = typer.Option(None, help="Override models.toy_agent"))
 
 
 @app.command()
-def run() -> None:
-    """Labeling pipeline (Milestone 4+)."""
-    console.print("not implemented yet")
-    raise typer.Exit(1)
+def run(
+    batch_size: int = typer.Option(20, help="Receipts in the batch (first N by id)"),
+    text_source: str = typer.Option("ocr", help="ocr | gold"),
+    offset: int = typer.Option(0, help="Skip this many receipts first"),
+) -> None:
+    """Label a batch with the 3 labelers and report agreement (M4)."""
+    from rulebook.pipeline.labeling import run_batch
+
+    if text_source not in ("ocr", "gold"):
+        raise typer.BadParameter("text-source must be ocr or gold")
+    run_batch(text_source, batch_size, offset)  # type: ignore[arg-type]
 
 
 @app.command()

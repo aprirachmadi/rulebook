@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Agentic labeling system that improves its own guideline from model disagreement (CORD receipts, local models)"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-dependencies = ["datasets (>=5.1.0,<6.0.0)", "pandas (>=3.1.1,<4.0.0)", "pydantic (>=2)", "typer (>=0.28.0,<0.29.0)", "rich (>=15.0.0,<16.0.0)", "pillow (>=13.0.0,<14.0.0)", "pyyaml (>=6.0.3,<7.0.0)", "httpx (>=0.28.1,<0.29.0)"]
+dependencies = ["datasets (>=5.1.0,<6.0.0)", "pandas (>=3.1.1,<4.0.0)", "pydantic (>=2)", "typer (>=0.28.0,<0.29.0)", "rich (>=15.0.0,<16.0.0)", "pillow (>=13.0.0,<14.0.0)", "pyyaml (>=6.0.2,<7.0.0)", "httpx (>=0.28.1,<0.29.0)", "paddleocr (==3.7.0)", "paddlepaddle (==3.3.1)", "krippendorff (>=0.9.0,<0.10.0)"]
 
 [project.scripts]
 rulebook = "rulebook.pipeline.run:app"

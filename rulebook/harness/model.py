@@ -35,6 +35,7 @@ class ChatResponse:
     completion_tokens: int = 0
     latency_s: float = 0.0
     used_fallback: bool = False  # tool calls were parsed from text, not native
+    finish_reason: str = ""  # "length" = cut off at the reply cap
 
     def assistant_message(self) -> Message:
         """The message to append to the conversation for this response."""
@@ -96,6 +97,7 @@ class ModelClient:
         backoff_s: float | None = None,
         reasoning_effort: str | None = None,
         temperature: float | None = None,
+        max_tokens: int | None = None,
         transport: httpx.BaseTransport | None = None,
         guard: MemoryGuard | None = None,
         use_guard: bool | None = None,
@@ -106,6 +108,7 @@ class ModelClient:
         self.backoff_s = cfg["backoff_s"] if backoff_s is None else backoff_s
         self.reasoning_effort = reasoning_effort or cfg.get("reasoning_effort")
         self.temperature = temperature
+        self.max_tokens = max_tokens or cfg.get("max_tokens")
         # The VRAM guard is on for real calls; tests with a fake transport skip it.
         if use_guard is None:
             use_guard = transport is None
@@ -134,6 +137,8 @@ class ModelClient:
             body["reasoning_effort"] = self.reasoning_effort
         if self.temperature is not None:
             body["temperature"] = self.temperature
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
 
         if self.guard is not None:
             self.guard.prepare(self.model)
@@ -142,6 +147,7 @@ class ModelClient:
         latency = time.perf_counter() - start
 
         msg = data["choices"][0]["message"]
+        finish = data["choices"][0].get("finish_reason") or ""
         content = msg.get("content") or ""
         usage = data.get("usage") or {}
         resp = ChatResponse(
@@ -149,6 +155,7 @@ class ModelClient:
             prompt_tokens=usage.get("prompt_tokens", 0),
             completion_tokens=usage.get("completion_tokens", 0),
             latency_s=latency,
+            finish_reason=finish,
         )
         native = [c for c in msg.get("tool_calls") or [] if c.get("type", "function") == "function"]
         for i, c in enumerate(native):

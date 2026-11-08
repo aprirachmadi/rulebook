@@ -5,8 +5,29 @@
 defaults:
   max_steps: 10
   # Token budget (chars / 4) per call. Must stay below the model's context window, leaving
-  # room for the reply: labelers 6000 of 8192, gemma4:12b-16k agents 14000 of 16384.
-  budget: 14000
+  # room for the reply: labelers 3000 + 4800 of 8192, gemma agents 12500 + 3500 of 16384.
+  # Note: chars/4 (SPEC) underestimated real labeler prompts ~2x; the loop also checks real counts.
+  budget: 12500
+
+# Shared by the three labelers. {LABELS} is replaced with the label space at run time.
+# Task mechanics only: every labeling rule comes from the guideline (cord-guideline skill).
+labeler_prompt: &labeler_prompt |
+  You label the words on an Indonesian shop receipt, following the labeling guideline below.
+
+  You get the receipt as numbered lines. Each line shows its index in brackets, its rough
+  position (x, y from 0 to 100), then its words, each with a number, like 0:Nasi 1:Goreng.
+
+  Give every word of every line exactly one label from this list:
+  {LABELS}
+
+  Group neighbouring words in the same line that share a label into one span.
+  For each span give: line_idx, words (the word numbers), label, confidence (0 to 1,
+  how sure you are), and reason (at most 5 words).
+  Use the guideline. If no rule fits a word, still pick the closest label and give a low
+  confidence. Copy numbers as they are; never convert or calculate them.
+
+  Answer with JSON only: {"labels": [{"line_idx": 0, "words": [0, 1], "label": "...",
+  "confidence": 0.9, "reason": "..."}]}
 
 agents:
   ocr_agent:
@@ -15,23 +36,29 @@ agents:
     skills: [indonesian-receipt-format]
   labeler_a:
     model: labelers.labeler_a
-    budget: 6000
+    system_prompt: *labeler_prompt
+    budget: 3000
+    max_tokens: 4800       # 71-line receipt needed ~3,200; real prompt up to ~3,250 (nemotron)
     preload_skills: true   # guideline goes in the system prompt; no tool call needed
-    tools: [get_receipt_context]
+    tools: []              # SPEC lists get_receipt_context; the receipt is in the prompt instead
     skills: [cord-guideline]
     output_schema: LabelBatch
   labeler_b:
     model: labelers.labeler_b
-    budget: 6000
+    system_prompt: *labeler_prompt
+    budget: 3000
+    max_tokens: 4800       # 71-line receipt needed ~3,200; real prompt up to ~3,250 (nemotron)
     preload_skills: true   # guideline goes in the system prompt; no tool call needed
-    tools: [get_receipt_context]
+    tools: []              # SPEC lists get_receipt_context; the receipt is in the prompt instead
     skills: [cord-guideline]
     output_schema: LabelBatch
   labeler_c:
     model: labelers.labeler_c
-    budget: 6000
+    system_prompt: *labeler_prompt
+    budget: 3000
+    max_tokens: 4800       # 71-line receipt needed ~3,200; real prompt up to ~3,250 (nemotron)
     preload_skills: true   # guideline goes in the system prompt; no tool call needed
-    tools: [get_receipt_context]
+    tools: []              # SPEC lists get_receipt_context; the receipt is in the prompt instead
     skills: [cord-guideline]
     output_schema: LabelBatch
   diagnoser:
