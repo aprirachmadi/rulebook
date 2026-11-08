@@ -1,0 +1,23 @@
+# All model names and thresholds live here (CLAUDE.md: never hardcode them).
+
+llm:
+  base_url: http://localhost:11434/v1   # overridden by OLLAMA_BASE_URL if set
+
+# Spec defaults ([CONFIRM] in SPEC.md section 0). None are installed yet in Ollama.
+models:
+  labelers:
+    labeler_a: qwen2.5:7b-instruct
+    labeler_b: llama3.1:8b-instruct
+    labeler_c: gemma2:9b
+  orchestrator: qwen2.5:14b-instruct
+  orchestrator_fallback: qwen2.5:7b-instruct
+  vision: qwen2.5vl:7b
+  embedding: nomic-embed-text
+
+data:
+  dataset: naver-clova-ix/cord-v2
+  splits:
+    work: train
+    gold: validation
+    eval: test
+  gold_receipt_count: 30

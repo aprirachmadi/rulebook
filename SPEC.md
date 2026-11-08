@@ -12,7 +12,7 @@ Everything must run **fully offline on local open‑weights models**.
 ## 0. Ground rules for the coding agent
 
 - Poetry project. Python version = the same one the neighboring projects use (see CLAUDE.md → Environment). Type hints everywhere, `ruff` + `pytest`.
-- **No agent frameworks.** Allowed libs: `httpx` or `openai` (client only, pointed at a local server), `pydantic`, `numpy`, `pandas`, `datasets`, `paddleocr`, `krippendorff`, `scikit-learn`, `fastapi`, `uvicorn`, `sqlite3`/`sqlmodel`, `rich`, `typer`. Ask before adding anything else.
+- **No agent frameworks.** Allowed libs: `httpx` or `openai` (client only, pointed at a local server), `pydantic`, `numpy`, `pandas`, `datasets`, `paddleocr`, `krippendorff`, `scikit-learn`, `fastapi`, `uvicorn`, `sqlite3`/`sqlmodel`, `rich`, `typer`, `pillow`, `pyyaml`. Ask before adding anything else.
 - Build in the milestone order below. Each milestone ends with passing tests and a short note in `PROGRESS.md`. Stop for my review between milestones.
 - Never call external APIs. All models go through an OpenAI‑compatible endpoint (`OLLAMA_BASE_URL`, default `http://localhost:11434/v1`).
 - When something in this spec is ambiguous, **ask before deciding** (see CLAUDE.md). Record each answer in `DECISIONS.md`.
@@ -34,13 +34,14 @@ Model names live in `config.yaml` only — never hardcode them.
 ## 1. Data
 
 ### Source
-- CORD v1: Hugging Face `naver-clova-ix/cord-v1` → used as the **noisy labels** the system works on.
-- CORD v2: Hugging Face `naver-clova-ix/cord-v2` (verify the exact ID) → **answer key** for label‑error evaluation.
+- CORD v2: Hugging Face `naver-clova-ix/cord-v2` → the **only** label source, and the **answer key**.
+- CORD v1 is not used. It differs from v2 on only 18 lines once v2's label renames are mapped (record: `reports/m1_gate_findings.md`).
 - License CC BY 4.0. 1,000 receipts (800 train / 100 dev / 100 test).
+- Scope = **labeling from scratch**: agents label blind, from the image / OCR text + the guideline. They never start from existing labels.
 
 ### Structure (verify against the actual data before coding on it)
 Each sample has an image and a `ground_truth` JSON string. Inside `gt` → `valid_line`: a list of lines, each with
-`category` (e.g. `menu.nm`, `menu.price`, `sub_total.subtotal_price`, `total.total_price`), `group_id`, (v2: `sub_group_id`),
+`category` (e.g. `menu.nm`, `menu.price`, `sub_total.subtotal_price`, `total.total_price`), `group_id`, `sub_group_id`,
 and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 
 ### Unit of labeling = one `valid_line`
@@ -48,11 +49,10 @@ and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 - `line_box` = union of the word quads.
 - Label space = the set of `category` values that actually appear in the data. **Derive it from the data**, don't hardcode. Expect ~30.
 
-### Milestone 1 task — v1 vs v2 diff (do this first)
-1. Match receipts between v1 and v2 (try a shared id; otherwise match by image hash).
-2. Match lines within a receipt by word quads + text.
-3. Output `reports/v1_v2_diff.csv` (receipt_id, line_idx, text, v1_label, v2_label, changed) and a summary: total lines, # changed, top changed label pairs.
-4. **Decision gate:** if changed lines < ~100, stop and report the numbers. Proposed fallback: a 300-line hand-reviewed sample instead of v2. Wait for my decision.
+### Milestone 1 task — v2 data layer
+1. Load CORD v2, extract lines (text in reading order, box, words) per receipt.
+2. Keep labels out of agent-facing data; expose them only through the answer key (see leakage rules).
+3. Output `reports/cord_v2_summary.md`: receipts and lines per split, label space, label distribution.
 
 ### Splits and leakage rules (critical)
 - `work` set: the receipts the agents process (train split).
@@ -164,7 +164,8 @@ SQLite `rulebook.db`: `receipts`, `lines` (text, box, ocr_conf, text_source), `v
 - Krippendorff's alpha per guideline version (nominal, 3 labelers).
 - % of lines that reached a human; # human decisions vs # disagreeing lines.
 - Label accuracy vs v2 on the eval set, for guideline v1 vs final.
-- **Label‑error detection vs v2**: among lines where v1 ≠ v2, how many did the system flag/change (recall); among lines it changed, how many now match v2 (precision).
+- No label‑error‑detection metric for now (v1 dropped, no noise injection).
+- **Suspect v2 lines**: after a run, list the top 50 lines where all 3 labelers confidently disagree with v2, for a hand check of whether v2 itself is wrong. Output `reports/run_<id>_suspect_v2.csv`.
 - OCR: character error rate vs CORD text; labeling accuracy with gold text vs OCR text.
 - Diagnosis accuracy: on clusters, was OCR_ERROR predicted when OCR text really differed from CORD text?
 - Ablation: single generalist agent (all tools) vs specialized agents — accuracy, tokens, steps, wall time.
@@ -173,7 +174,7 @@ SQLite `rulebook.db`: `receipts`, `lines` (text, box, ocr_conf, text_source), `v
 
 ## 8. Milestones (acceptance criteria)
 
-1. **Data + diff**: loaders, line extraction, v1/v2 diff report, leakage test. ✅ when `reports/v1_v2_diff.csv` exists and tests pass.
+1. **Data**: v2 loader, line extraction, answer key, leakage test. ✅ when `reports/cord_v2_summary.md` exists and tests pass.
 2. **Harness core**: `model.py`, `tools.py`, `loop.py`, `trace.py`. ✅ when a toy agent with a `calculator` tool solves 5 tasks on a local model and the trace file is valid.
 3. **Skills + context + guard**: ✅ when an agent loads a skill on demand, survives a 50‑step run without exceeding budget, and a `needs_approval` tool blocks until CLI approval.
 4. **OCR agent + labelers**: ✅ when 20 receipts are OCR'd, matched to CORD lines, labeled by 3 models, and alpha is reported, in both text‑source modes.
