@@ -11,15 +11,20 @@
   - `eval/data_summary.py` -> `reports/cord_v2_summary.md`.
   - Tests: 9 passing, including leakage tests (no label fields on agent-facing models or loaded data; static scan that nothing in `rulebook/` except `data/cord.py` reads raw ground truth or categories, and nothing imports `eval/`).
 
+- Milestone 1 approved (2026-11-08). Follow-ups done:
+  - Gold set: `rulebook/data/gold.py` (`select_gold_receipts`, `gold_labels`); 30 dev receipts (seed 0, all 23 dev classes covered, 340 lines) frozen in `config.yaml`.
+  - Leakage tests extended: gold accessor refuses train/test ids and a non-dev gold split; gold.py may only read the dev split; only allowed modules may call `gold_labels`. 16 tests pass.
+  - `guidelines/v1.md` drafted (DRAFT, not approved): 15 classes defined, 14 listed by name only.
+  - Reading order checked: only 2 lines change text vs CORD's own word order.
+
 ## In progress
-- Nothing. Waiting for the Milestone 1 review.
+- Waiting for: guideline v1 approval, model choice, drive decision.
 
 ## Next
 - Milestone 2: harness core (`model.py`, `tools.py`, `loop.py`, `trace.py`) + calculator toy agent.
 
 ## Open questions
-- Gold set: which 30 of the 100 dev receipts (needed by M5).
-- "Confidently disagree with v2" for the suspect-v2 list: exact definition (needed after the first run).
-- Label space is derived from category names in the work split's v2 labels (names only, not per-line). OK under the leakage rule?
 - Very rare classes: `void_menu.nm`, `void_menu.price`, `menu.itemsubtotal` have 1 train line each.
-- None of the spec's default Ollama models are installed (needed from M2).
+- Models: proposal sent, waiting for OK (needed from M2).
+- Repo is on an NTFS (fuseblk) partition: keep, or move runtime files (db, runs) / the repo to ext4?
+- Two-row lines on tilted receipts read value-first (`2.000,00 Change:`), same as CORD's order. Fix or keep?

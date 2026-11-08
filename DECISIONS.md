@@ -12,3 +12,12 @@
 | 2026-11-08 | Evaluation | Accuracy vs v2, agreement per guideline version, % sent to human, OCR metrics, ablation |
 | 2026-11-08 | Checking v2 itself | After a run, list the top 50 lines where all 3 labelers confidently disagree with v2, for a hand check |
 | 2026-11-08 | Pillow, PyYAML | Approved; added with Poetry and to the SPEC allowed list |
+| 2026-11-08 | Label space from train category names | Fine (names only) |
+| 2026-11-08 | New M1 finish line (`reports/cord_v2_summary.md` + tests) | Fine |
+| 2026-11-08 | Gold-set access | One sanctioned function for the Verifier, gold (dev) receipts only; leakage test must fail if it can return train or test labels. 30 receipts, fixed seed, stratified for rare classes |
+| 2026-11-08 | Guideline v1 source | Not from train labels. Class names + 1–2 examples from dev only (never test). Leave out discounts vs bill discounts, service charge, sub-items, void lines, etc fields. Show before use |
+| 2026-11-08 | Reading order | User checks samples; same ordering for OCR-vs-CORD text comparison |
+| 2026-11-08 | Run sizes | Dev runs 20–50 receipts; full 800 only for the final report |
+| 2026-11-08 | Rare classes | Report overall accuracy + macro-F1; flag classes with < 5 eval lines as "too few to score" |
+| 2026-11-08 | Suspect-v2 definition | All 3 labelers at confidence >= 0.7, none matches v2, ranked by average confidence |
+| 2026-11-08 | Models | Report GPU/VRAM and propose; wait for OK |

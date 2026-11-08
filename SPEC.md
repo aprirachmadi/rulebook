@@ -45,7 +45,7 @@ Each sample has an image and a `ground_truth` JSON string. Inside `gt` → `vali
 and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 
 ### Unit of labeling = one `valid_line`
-- `line_text` = words joined with spaces, in reading order.
+- `line_text` = words joined with spaces, in reading order: rows top to bottom (by mean top edge of each `row_id`), words left to right within a row. Use the same ordering whenever OCR text is compared against CORD text.
 - `line_box` = union of the word quads.
 - Label space = the set of `category` values that actually appear in the data. **Derive it from the data**, don't hardcode. Expect ~30.
 
@@ -56,7 +56,7 @@ and `words` (each with `quad` box coordinates, `text`, `is_key`, `row_id`).
 
 ### Splits and leakage rules (critical)
 - `work` set: the receipts the agents process (train split).
-- `gold` set: 30 receipts from dev with **v2 labels**, used by the Verifier agent to test rule patches.
+- `gold` set: 30 receipts from dev with **v2 labels**, used by the Verifier agent to test rule patches. Picked with a fixed seed, stratified so every dev class appears at least once; ids frozen in `config.yaml`. The Verifier reads them only through `rulebook.data.gold.gold_labels()`, which refuses train or test receipts.
 - `eval` set: test split, v2 labels. **No agent, tool, prompt, or skill may ever read v2 labels of the work or eval sets.** Only `eval/` scripts read them, after a run finishes.
 - Enforce this in code: the data layer exposes v2 labels only through `eval.load_answer_key()` and the gold‑set tool. Add a test that fails if any agent tool can reach them.
 
@@ -129,7 +129,8 @@ Labelers should use `output_schema` (JSON: `[{line_idx, label, confidence, reaso
 
 ## 4. Guideline
 
-- File: `guidelines/v1.md`. One section per label class: definition (1–2 lines) + 1 example.
+- File: `guidelines/v1.md`. One section per label class: definition (1–2 lines) + 1–2 examples.
+- v1 is **not** written from train labels: definitions come from the class names, examples only from non-gold dev receipts (never train, never test).
 - **Intentionally incomplete**: don't cover discounts vs subtotal discounts, service charge, item modifiers/sub‑items, void lines, or "etc" fields. The agent should discover these.
 - Each patch = a numbered rule (`7.2`) with: rule text, 3–5 example lines (from work set only), rationale, affected line count. Stored as `guidelines/patches/<n>.json` and rendered into `guidelines/v<N>.md`.
 - Revert rule: if the Verifier finds gold‑set accuracy drops or alpha on the cluster doesn't improve by ≥ 0.05, the patch is auto‑rejected before reaching the human.
@@ -163,9 +164,9 @@ SQLite `rulebook.db`: `receipts`, `lines` (text, box, ocr_conf, text_source), `v
 
 - Krippendorff's alpha per guideline version (nominal, 3 labelers).
 - % of lines that reached a human; # human decisions vs # disagreeing lines.
-- Label accuracy vs v2 on the eval set, for guideline v1 vs final.
+- Label accuracy vs v2 on the eval set, for guideline v1 vs final: overall accuracy + macro‑F1. Per‑class scores flag classes with < 5 eval lines as "too few to score".
 - No label‑error‑detection metric for now (v1 dropped, no noise injection).
-- **Suspect v2 lines**: after a run, list the top 50 lines where all 3 labelers confidently disagree with v2, for a hand check of whether v2 itself is wrong. Output `reports/run_<id>_suspect_v2.csv`.
+- **Suspect v2 lines**: after a run, list the top 50 lines where all 3 labelers confidently disagree with v2, for a hand check of whether v2 itself is wrong. "Confidently disagree" = all 3 labelers at confidence ≥ 0.7 and none matches v2; ranked by average confidence. Output `reports/run_<id>_suspect_v2.csv`.
 - OCR: character error rate vs CORD text; labeling accuracy with gold text vs OCR text.
 - Diagnosis accuracy: on clusters, was OCR_ERROR predicted when OCR text really differed from CORD text?
 - Ablation: single generalist agent (all tools) vs specialized agents — accuracy, tokens, steps, wall time.
@@ -173,6 +174,8 @@ SQLite `rulebook.db`: `receipts`, `lines` (text, box, ocr_conf, text_source), `v
 ---
 
 ## 8. Milestones (acceptance criteria)
+
+Dev runs use 20–50 receipts. The full 800‑receipt work set is only for the final report.
 
 1. **Data**: v2 loader, line extraction, answer key, leakage test. ✅ when `reports/cord_v2_summary.md` exists and tests pass.
 2. **Harness core**: `model.py`, `tools.py`, `loop.py`, `trace.py`. ✅ when a toy agent with a `calculator` tool solves 5 tasks on a local model and the trace file is valid.

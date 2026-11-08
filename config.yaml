@@ -21,3 +21,36 @@ data:
     gold: validation
     eval: test
   gold_receipt_count: 30
+  gold_seed: 0
+  # Frozen output of rulebook.data.gold.select_gold_receipts(30, gold_seed).
+  gold_receipt_ids:
+    - validation_0002
+    - validation_0010
+    - validation_0013
+    - validation_0018
+    - validation_0019
+    - validation_0028
+    - validation_0033
+    - validation_0037
+    - validation_0039
+    - validation_0040
+    - validation_0043
+    - validation_0046
+    - validation_0055
+    - validation_0057
+    - validation_0062
+    - validation_0063
+    - validation_0066
+    - validation_0070
+    - validation_0073
+    - validation_0076
+    - validation_0077
+    - validation_0080
+    - validation_0082
+    - validation_0083
+    - validation_0086
+    - validation_0088
+    - validation_0089
+    - validation_0092
+    - validation_0094
+    - validation_0097
