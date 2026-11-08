@@ -48,3 +48,8 @@
 | 2026-11-08 | Chunking (spec change) | ~20 lines per labeler call; "reason" only when confidence < 0.7 |
 | 2026-11-08 | Repair | Targeted repair approved (re-ask only bad / missing words); fix the per-line word index bound |
 | 2026-11-08 | Labeler models after the 20-receipt runs | Replace nemotron-3-nano:4b (labeler_b) with llama3.1:8b and llama3.2:3b (labeler_c) with gemma4:12b (installed), both 8k tags; user pulled llama3.1:8b. Rerun the same 20 receipts |
+| 2026-11-08 | qwen identical numbers | Rerun, not reused (33 fresh calls; identical because temperature 0 and identical inputs) |
+| 2026-11-08 | "other" in the labeler prompt | Only for text outside the order (store name, address, date, cashier, footer); item names, counts, prices, subtotals and totals always get a real label, low confidence when unsure. Applies from Milestone 5's first run |
+| 2026-11-08 | Headline labeling metric | Agreement with v2 over CORD-matched words, counting "other" on a matched word as wrong. Excl-other stays secondary. Flag any labeler under 75% at M5's first run |
+| 2026-11-08 | Run reports | Every run report shows all-agree -> % matches v2 and majority -> % matches v2 |
+| 2026-11-08 | qwen-only rerun | Not done (user: no rerun); --labelers option kept, unused |

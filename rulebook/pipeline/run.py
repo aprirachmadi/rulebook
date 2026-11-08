@@ -51,13 +51,15 @@ def run(
     batch_size: int = typer.Option(20, help="Receipts in the batch (first N by id)"),
     text_source: str = typer.Option("ocr", help="ocr | gold"),
     offset: int = typer.Option(0, help="Skip this many receipts first"),
+    labelers: str = typer.Option("", help="Comma-separated subset, e.g. labeler_a (default: all)"),
 ) -> None:
     """Label a batch with the 3 labelers and report agreement (M4)."""
     from rulebook.pipeline.labeling import run_batch
 
     if text_source not in ("ocr", "gold"):
         raise typer.BadParameter("text-source must be ocr or gold")
-    run_batch(text_source, batch_size, offset)  # type: ignore[arg-type]
+    subset = [x.strip() for x in labelers.split(",") if x.strip()] or None
+    run_batch(text_source, batch_size, offset, subset)  # type: ignore[arg-type]
 
 
 @app.command()

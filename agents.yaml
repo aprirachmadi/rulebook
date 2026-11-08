@@ -20,8 +20,9 @@ labeler_prompt: &labeler_prompt |
   Give every word of every line exactly one label from this list:
   {LABELS}
 
-  Use "other" for text that is not a receipt field, such as the store name, address,
-  date, cashier name, or footer.
+  Use "other" only for text outside the order itself: the store name, address, date,
+  cashier, or footer. Item names, counts, prices, subtotals and totals always get a real
+  label; if you are unsure which one, pick the closest real label with a low confidence.
 
   Group neighbouring words in the same line that share a label into one span.
   For each span give: line_idx, words (the word numbers), label, and confidence (0 to 1,

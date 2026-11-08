@@ -178,6 +178,7 @@ SQLite `rulebook.db`: `receipts`, `lines` (text, box, ocr_conf, text_source), `v
 
 - Krippendorff's alpha per guideline version (nominal, 3 labelers).
 - % of lines that reached a human; # human decisions vs # disagreeing lines.
+- **Headline labeling metric**: agreement with v2 over CORD-matched words, counting `other` on a matched word as wrong (excl-other is secondary). Every run report also shows all-agree → % matches v2 and majority → % matches v2.
 - Label accuracy vs v2 on the eval set, for guideline v1 vs final: overall accuracy + macro‑F1. Per‑class scores flag classes with < 5 eval lines as "too few to score".
 - No label‑error‑detection metric for now (v1 dropped, no noise injection).
 - **Suspect v2 lines**: after a run, list the top 50 lines where all 3 labelers confidently disagree with v2, for a hand check of whether v2 itself is wrong. "Confidently disagree" = all 3 labelers at confidence ≥ 0.7 and none matches v2; ranked by average confidence. Output `reports/run_<id>_suspect_v2.csv`.

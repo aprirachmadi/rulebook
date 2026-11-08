@@ -75,8 +75,11 @@
   - No context-window warnings; one model loaded at a time throughout.
 - **Milestone 4 acceptance met** (20 receipts OCR'd, matched, labeled by 3 models, alpha reported, both text modes). Ready for review.
 
+- Milestone 4 accepted (2026-11-08). Follow-ups: tightened `other` rule in the labeler prompt (effective from M5's first run); report headline = agreement with v2 with `other` on matched words counted wrong; agreement block (all-agree / majority -> % matches v2) in every report; `rulebook run --labelers` option (unused).
+  - Last run under the new headline metric (old prompt): gold qwen 71.1%, llama 82.8%, gemma 89.9%; OCR 55.3% / 59.2% / 74.3%. All-agree matches v2: gold 97.0%, OCR 84.1%.
+
 ## In progress
-- Nothing. Waiting for the Milestone 4 review.
+- Milestone 5: plan written, waiting for go.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
@@ -94,4 +97,4 @@
 - Token estimate: chars/4 (SPEC) undercounts real labeler prompts ~2x (est 1.4k vs real 2.8k). The loop now also checks Ollama's real counts against the window.
 - VRAM estimates are conservative: nemotron-3-nano:4b-8k measured 3.0 GB in `ollama ps` (estimate 3.9).
 - Strict coverage ("every word exactly once", one full repair) is hard for the small labelers on long receipts. Options if the failure rate is high: targeted repair of only the missing words, or labeling long receipts in line chunks.
-- qwen3.5:4b now uses `other` far more than the others (18.5% of gold words, all of which have a real v2 label); counted as wrong it scores ~71% on gold vs llama ~83% and gemma ~90%. Consider whether to keep it as labeler_a.
+- At M5's first run: flag any labeler under 75% on the headline metric (qwen was 71.1% gold with the old prompt).

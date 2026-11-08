@@ -114,7 +114,8 @@ def build_docs(text_source: TextSource, batch_size: int, offset: int) -> list[La
     return [ocr_doc(r, ocr_cached(r)) for r in receipts]
 
 
-def run_batch(text_source: TextSource, batch_size: int, offset: int = 0) -> dict:
+def run_batch(text_source: TextSource, batch_size: int, offset: int = 0,
+              labelers: list[str] | None = None) -> dict:
     version = sync_skill()  # cord-guideline skill = current guideline version
     tracer = Tracer()
     run_id = tracer.run_id
@@ -127,7 +128,8 @@ def run_batch(text_source: TextSource, batch_size: int, offset: int = 0) -> dict
 
     chunk_lines = load_config()["labeling"]["chunk_lines"]
     stats: list[LabelerStats] = []
-    for name in LABELERS:  # one model at a time; the memory guard unloads the previous one
+    agents = labelers or LABELERS
+    for name in agents:  # one model at a time; the memory guard unloads the previous one
         agent = build_agent(name, output_schema=batch_model({0: [0]}, labels))
         agent.system_prompt = agent.system_prompt.replace("{LABELS}", ", ".join(labels))
         st = LabelerStats(name, agent.model)
@@ -156,9 +158,10 @@ def run_batch(text_source: TextSource, batch_size: int, offset: int = 0) -> dict
         "guideline_version": version,
         "receipts": len(docs),
         "words": sum(len(ln.words) for d in docs for ln in d.lines),
-        "alpha_word_level": alpha(units, LABELERS),
-        "agreement_pattern": agreement_pattern(units, LABELERS),
-        "alpha_per_label": alpha_per_label(units, LABELERS),
+        "labelers_run": agents,
+        "alpha_word_level": alpha(units, agents),
+        "agreement_pattern": agreement_pattern(units, agents),
+        "alpha_per_label": alpha_per_label(units, agents),
         "labelers": [st.__dict__ for st in stats],
     }
     out = ROOT / load_config()["harness"]["runs_dir"] / run_id / "summary.json"
