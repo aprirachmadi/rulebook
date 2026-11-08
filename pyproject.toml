@@ -1,0 +1,34 @@
+[project]
+name = "rulebook"
+version = "0.1.0"
+description = "Agentic labeling system that improves its own guideline from model disagreement (CORD receipts, local models)"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = ["datasets (>=5.1.0,<6.0.0)", "pandas (>=3.1.1,<4.0.0)", "pydantic (>=2)", "typer (>=0.28.0,<0.29.0)", "rich (>=15.0.0,<16.0.0)"]
+
+[project.scripts]
+rulebook = "rulebook.pipeline.run:app"
+
+[tool.poetry]
+packages = [{ include = "rulebook" }, { include = "eval" }]
+
+[build-system]
+requires = ["poetry-core>=2.0,<3.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.2.0,<10.0.0)",
+    "ruff (>=0.17.4,<0.18.0)"
+]
