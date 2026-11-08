@@ -68,8 +68,15 @@
   - gold 20261108-143209-f4963e: complete receipts a 20, b 20, c 14. Agreement with v2 excl. other: qwen 87.2%, nemotron 24.8%, llama 42.6%. `other` use: 18.5% / 21.6% / 3.3% (in gold mode every word has a v2 label). Alpha 0.181.
   - ocr 20261108-144026-0d2712: complete a 19, b 19, c 7. Agreement excl. other: 79.5% / 10.6% / 36.4%. `other` use: 37.6% / 39.0% / 6.6%. Alpha 0.105.
 
+- Labelers switched (2026-11-08): b = llama3.1:8b-8k (~6.9 GB), c = gemma4:12b-8k (~9.6 GB); a = qwen3.5:4b-8k unchanged.
+- Rerun on train_0000-0019 with the new labelers:
+  - gold 20261108-153641-ccfab6: all three 20/20 complete. Agreement with v2 excl. other: qwen 87.2%, llama3.1 85.7%, gemma4 92.5%. `other` use 18.5% / 3.4% / 2.8%. **Alpha 0.714.** All-three-agree words: 425, 97.9% match v2. Majority (2+): 95.2%.
+  - ocr 20261108-154507-e17ce6: complete 19 / 19 / 20. Agreement excl. other: 79.5% / 68.1% / 80.9%. **Alpha 0.620.** All-agree: 272 words, 89.7% match v2.
+  - No context-window warnings; one model loaded at a time throughout.
+- **Milestone 4 acceptance met** (20 receipts OCR'd, matched, labeled by 3 models, alpha reported, both text modes). Ready for review.
+
 ## In progress
-- Waiting for the decision on labeler models (nemotron and llama are far below qwen).
+- Nothing. Waiting for the Milestone 4 review.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
@@ -87,3 +94,4 @@
 - Token estimate: chars/4 (SPEC) undercounts real labeler prompts ~2x (est 1.4k vs real 2.8k). The loop now also checks Ollama's real counts against the window.
 - VRAM estimates are conservative: nemotron-3-nano:4b-8k measured 3.0 GB in `ollama ps` (estimate 3.9).
 - Strict coverage ("every word exactly once", one full repair) is hard for the small labelers on long receipts. Options if the failure rate is high: targeted repair of only the missing words, or labeling long receipts in line chunks.
+- qwen3.5:4b now uses `other` far more than the others (18.5% of gold words, all of which have a real v2 label); counted as wrong it scores ~71% on gold vs llama ~83% and gemma ~90%. Consider whether to keep it as labeler_a.
