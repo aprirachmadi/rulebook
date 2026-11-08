@@ -1,0 +1,44 @@
+# Agents (SPEC section 3). `model` is a key path into config.yaml `models`, never a model name.
+# System prompts are written with each agent's milestone (M4-M6); an agent without one
+# cannot be built yet.
+
+defaults:
+  max_steps: 10
+  budget: 3000   # tokens (chars / 4); must stay below the model's context window
+
+agents:
+  ocr_agent:
+    model: vision
+    tools: [run_paddleocr, crop_line, vlm_read_crop, sum_check]
+    skills: [indonesian-receipt-format]
+  labeler_a:
+    model: labelers.labeler_a
+    tools: [get_receipt_context]
+    skills: [cord-guideline]
+    output_schema: LabelBatch
+  labeler_b:
+    model: labelers.labeler_b
+    tools: [get_receipt_context]
+    skills: [cord-guideline]
+    output_schema: LabelBatch
+  labeler_c:
+    model: labelers.labeler_c
+    tools: [get_receipt_context]
+    skills: [cord-guideline]
+    output_schema: LabelBatch
+  diagnoser:
+    model: orchestrator
+    tools: [get_cluster, get_votes, get_ocr_conf, sum_check, search_similar_lines]
+    skills: [disagreement-taxonomy, cord-guideline]
+  rule_writer:
+    model: orchestrator
+    tools: [get_cluster, search_similar_lines, get_guideline]
+    skills: [guideline-style, cord-guideline]
+  verifier:
+    model: orchestrator   # not set in SPEC; open question
+    tools: [simulate_patch, compute_alpha, run_gold_set, diff_labels]
+    skills: [stats-checks]
+  orchestrator:
+    model: orchestrator
+    tools: [delegate, list_clusters, request_human, apply_patch, relabel]
+    skills: []

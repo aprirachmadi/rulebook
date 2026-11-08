@@ -51,3 +51,30 @@ def run() -> None:
     """Labeling pipeline (Milestone 4+)."""
     console.print("not implemented yet")
     raise typer.Exit(1)
+
+
+@app.command()
+def m3_check(
+    part: str = typer.Argument("all", help="skill | budget | approval | all"),
+    budget: int = typer.Option(3000, help="Token budget for the long run"),
+) -> None:
+    """Milestone 3 live checks on the toy model."""
+    from rulebook.harness.guard import CLIApprover
+    from rulebook.harness.trace import Tracer, read_trace
+    from rulebook.pipeline import m3_check as m3
+
+    tracer = Tracer()
+    if part in ("skill", "all"):
+        r = m3.check_skill(tracer)
+        console.print(f"[bold]skill[/]: loaded={r.skills_loaded} answer={r.output!r} "
+                      f"steps={r.steps} stop={r.stop_reason}")
+    if part in ("budget", "all"):
+        r = m3.check_long_run(tracer, budget)
+        console.print(f"[bold]budget[/]: steps={r.steps} stop={r.stop_reason} answer={r.output!r} "
+                      f"{r.error} | max context sent={r.max_context_tokens} budget={budget} "
+                      f"over_budget={r.over_budget} | full history≈"
+                      f"{sum(len(str(m.get('content') or '')) for m in r.messages) // 4} tokens")
+    if part in ("approval", "all"):
+        r, applied = m3.check_approval(tracer, CLIApprover(console=console))
+        console.print(f"[bold]approval[/]: applied={applied} answer={str(r.output)[:80]!r}")
+    console.print(f"trace valid: {len(read_trace(tracer.path))} records -> {tracer.path}")

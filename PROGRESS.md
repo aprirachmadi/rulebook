@@ -32,16 +32,27 @@
 - Temperature per agent (`config.yaml` `temperature`). Toy agent at temperature 0: 5/5 in all 5 runs, and the 5 traces are identical (same tool calls and results), so it is one repeated sample, not 5 independent ones.
 - Number rule in SPEC.md and CLAUDE.md. `rulebook/tools/receipt.py`: token parser with both readings, `amount_token`, `sum_check` (1% from config). 26 tests with real CORD strings. Policy comparison: `reports/number_policy_check.md`.
 
+- **Milestone 3 (skills, context, guard)**, ready for review:
+  - `rulebook/harness/skills.py`: `skills/<name>/SKILL.md` with frontmatter; agents see name + description in the system prompt; built-in `load_skill` returns full text for allowlisted skills only.
+  - `rulebook/harness/context.py`: chars/4 estimate; over budget -> keep system + task + last `context_keep_turns` turns, summarize older tool results to one line, then drop oldest turns (tool calls and their results stay paired). The loop keeps the full history and sends the compacted view.
+  - `rulebook/harness/guard.py`: `CLIApprover` (rich panel with args and context; approve / edit / reject; edited args re-validated; approver + UTC timestamp). Wired into `ToolRegistry.run`; approvals logged as `approval` trace events.
+  - `agents.yaml` + `rulebook/harness/agents.py` `build_agent()`: model = key into config `models`; temperature from config; refuses agents with no system prompt / missing output schema / budget not below the model's context window.
+  - Tests: 78 passing.
+  - Live on `qwen3.5:4b` (`rulebook m3-check`): skill loaded on demand and used (KOPI7); 51-step run read all 50 pages, correct answer, max context sent 2,987 / budget 3,000 (full history ~18k tokens), Ollama prompt_tokens max 2,380 < 4,096; approval: blocks with no input (killed by timeout, exit 124, tool never ran), approve runs it, reject does not.
+  - Bugs found by the live runs and fixed: rich markup swallowed `[a]`/`[e]`/`[r]` in the prompt and would swallow `[...]` in receipt text.
+  - Found: Ollama serves only 4,096 tokens of context for `qwen3.5:4b` and `gemma4:12b` (server default) and silently drops the start of longer prompts. `config.yaml` `harness.context_window` records this; budgets are checked against it.
+
 ## In progress
-- Milestone 3.
-- Blocked on a decision: how to resolve ambiguous number tokens per receipt (see open questions). Not built until answered.
+- Nothing. Waiting for the Milestone 3 review and the open decisions below.
 
 ## Next
-- Milestone 3: skills, context budget, approval guard; load agents from `agents.yaml`.
+- Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
 
 ## Open questions
 - **Number resolution policy (blocking the resolver only).** The per-receipt rule makes 93/99 dev receipts "ambiguous". Proposal: per token, lone separator + 3 digits = thousands; sum check then verifies (89/99 dev pass) and flags lines when it fails. See `reports/number_policy_check.md`.
 - `ocr_agent` has no temperature in config (not in the instruction); it uses the model default until set.
+- **Context window.** Ollama serves 4,096 tokens for qwen3.5:4b and gemma4:12b. Fine for labelers (one receipt + guideline), tight for diagnoser / rule writer / orchestrator.
+- Verifier model is not set in SPEC; `agents.yaml` uses the orchestrator model for now.
 - Very rare classes: `void_menu.nm`, `void_menu.price`, `menu.itemsubtotal` have 1 train line each.
 - `nemotron-3-nano:4b`, `llama3.2:3b`, `nomic-embed-text` not pulled yet (needed from M4 / M5).
 
@@ -50,3 +61,4 @@
 - Verifier thresholds (`max_gold_accuracy_drop` 0.01, `min_cluster_alpha_gain` 0.05).
 - Guideline v1 content, after the first real run.
 - The toy agent's tasks make the model read `Rp 12.500` itself, which the number rule now forbids for real agents. Fine for a harness test; don't copy that pattern.
+- Agent budgets: 3,000 tokens for all agents (`agents.yaml` defaults); `context_keep_turns` 4. The chars/4 estimate ran ~25% above Ollama's real count in the 50-step run (safe direction).

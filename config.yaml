@@ -17,9 +17,19 @@ temperature:
   diagnoser: 0.2
   orchestrator: 0.2
   toy_calculator: 0
+  toy_skill: 0
+  toy_reader: 0
+  toy_approval: 0
 
 harness:
   tool_result_max_chars: 2000
+  context_keep_turns: 4        # turns kept whole when compacting (SPEC: "last N turns")
+  # Context window Ollama actually serves per model (checked with `ollama ps`).
+  # The server default is 4096 unless the model tag or OLLAMA_CONTEXT_LENGTH sets more.
+  # An agent's budget must stay below its model's window, or Ollama silently drops the start.
+  context_window:
+    default: 4096
+    gemma4:12b-16k: 16384
   runs_dir: runs
 
 models:

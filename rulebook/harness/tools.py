@@ -10,6 +10,8 @@ from typing import Any, get_type_hints
 
 from pydantic import BaseModel, ValidationError
 
+from rulebook.harness.guard import Approval, ApprovalRequest, Approver
+
 
 @dataclass
 class Tool:
@@ -33,6 +35,7 @@ class Tool:
 class ToolResult:
     ok: bool
     content: str
+    approval: Approval | None = None
 
 
 def _to_text(value: Any) -> str:
@@ -71,23 +74,47 @@ class ToolRegistry:
     def schemas(self, names: list[str]) -> list[dict[str, Any]]:
         return [self._tools[n].schema() for n in names]
 
-    def run(self, name: str, args: dict[str, Any], max_chars: int) -> ToolResult:
-        """Validate args, call the tool, and return a compact result. Never raises."""
+    def run(
+        self,
+        name: str,
+        args: dict[str, Any],
+        max_chars: int,
+        approver: Approver | None = None,
+        agent: str = "",
+    ) -> ToolResult:
+        """Validate args, get approval if needed, call the tool, return a compact result.
+
+        Never raises. A `needs_approval` tool blocks on `approver` before it runs.
+        """
         t = self._tools.get(name)
         if t is None:
             return ToolResult(False, f"error: unknown tool {name!r}. Available: {self.names()}")
-        if t.needs_approval:
-            # The approval gate (guard.py) arrives in Milestone 3; until then, refuse.
-            return ToolResult(False, f"error: tool {name!r} needs approval and no approver is set")
         try:
             parsed = t.args_model.model_validate(args)
         except ValidationError as e:
             return ToolResult(False, truncate(f"error: invalid args for {name}: {e}", max_chars))
+
+        approval = None
+        if t.needs_approval:
+            if approver is None:
+                return ToolResult(False, f"error: tool {name!r} needs approval; no approver set")
+            approval = approver.request(ApprovalRequest(name, parsed.model_dump(), agent))
+            if approval.decision == "reject":
+                note = f": {approval.note}" if approval.note else ""
+                return ToolResult(False, f"rejected by {approval.approver}{note}", approval)
+            if approval.decision == "edit":
+                try:
+                    parsed = t.args_model.model_validate(approval.args)
+                except ValidationError as e:
+                    msg = f"error: edited args invalid for {name}: {e}"
+                    return ToolResult(False, truncate(msg, max_chars), approval)
+
         try:
             out = t.fn(parsed)
         except Exception as e:  # tool errors go back to the model, not up the stack
-            return ToolResult(False, truncate(f"error: {type(e).__name__}: {e}", max_chars))
-        return ToolResult(True, truncate(_to_text(out), max_chars))
+            msg = f"error: {type(e).__name__}: {e}"
+            return ToolResult(False, truncate(msg, max_chars), approval)
+        return ToolResult(True, truncate(_to_text(out), max_chars), approval)
 
 
 default_registry = ToolRegistry()

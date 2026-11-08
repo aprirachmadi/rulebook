@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from rulebook.config import ROOT, load_config
 
-Event = Literal["model", "tool", "final", "error"]
+Event = Literal["model", "tool", "approval", "final", "error"]
 
 
 class TraceRecord(BaseModel):
@@ -29,6 +29,7 @@ class TraceRecord(BaseModel):
     latency_s: float = 0.0
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    context_tokens: int = 0  # estimated size of the context sent (model events)
 
 
 def new_run_id() -> str:

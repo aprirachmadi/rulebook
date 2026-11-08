@@ -25,3 +25,9 @@ def load_config(path: Path = CONFIG_PATH) -> dict[str, Any]:
 def agent_temperature(agent_name: str) -> float | None:
     """Temperature for an agent from `config.yaml`; None means the model's default."""
     return (load_config().get("temperature") or {}).get(agent_name)
+
+
+def context_window(model: str) -> int:
+    """Tokens Ollama actually serves for `model` (config.yaml `harness.context_window`)."""
+    windows = load_config()["harness"]["context_window"]
+    return int(windows.get(model, windows["default"]))
