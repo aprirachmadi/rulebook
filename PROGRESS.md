@@ -63,8 +63,13 @@
   - ocr 20261108-135346-832f4d: a 13/20, b 3/20, c 1/20. Agreement with v2: qwen 65.3%, nemotron 6.8%, llama 47.8% (23 words). Alpha 0.060 (same caveat). OCR misses 67/624 words.
   - Failures are coverage errors (missed / doubled words, word index past the end of its line), not broken JSON. qwen's failed receipts miss 0-10 words; llama's 3-65.
 
+- Fixes after the first runs (2026-11-08): `other` label, 20-line chunks, reason only below 0.7 confidence, per-line word bounds in the JSON schema (anyOf per line; Ollama enforces it, checked live), targeted repair of only missed/conflicting words. 117 tests.
+- Rerun on train_0000-0019 (`reports/run_<id>_labeling.md`):
+  - gold 20261108-143209-f4963e: complete receipts a 20, b 20, c 14. Agreement with v2 excl. other: qwen 87.2%, nemotron 24.8%, llama 42.6%. `other` use: 18.5% / 21.6% / 3.3% (in gold mode every word has a v2 label). Alpha 0.181.
+  - ocr 20261108-144026-0d2712: complete a 19, b 19, c 7. Agreement excl. other: 79.5% / 10.6% / 36.4%. `other` use: 37.6% / 39.0% / 6.6%. Alpha 0.105.
+
 ## In progress
-- Stopped after the first runs as asked. Waiting for a decision on labeler failures / models before building anything else.
+- Waiting for the decision on labeler models (nemotron and llama are far below qwen).
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
