@@ -78,8 +78,12 @@
 - Milestone 4 accepted (2026-11-08). Follow-ups: tightened `other` rule in the labeler prompt (effective from M5's first run); report headline = agreement with v2 with `other` on matched words counted wrong; agreement block (all-agree / majority -> % matches v2) in every report; `rulebook run --labelers` option (unused).
   - Last run under the new headline metric (old prompt): gold qwen 71.1%, llama 82.8%, gemma 89.9%; OCR 55.3% / 59.2% / 74.3%. All-agree matches v2: gold 97.0%, OCR 84.1%.
 
+- **Milestone 5** built (plan approved 2026-11-08): clustering + 70/30 hold-out + top-8 cap, diagnoser and rule writer (gemma4:12b-16k, tools read votes/OCR/guideline only, skills from SPEC text), code verifier (gold set via `rulebook/tools/verify.py`, hold-out alpha, cached gold baseline, labelers as outer loop), `rulebook improve RUN_ID`, stage timings. 134 tests.
+  - Smoke test (1 cluster, 20-receipt OCR run): diagnoser ran out of steps (fixed: forced final structured answer at max_steps; inspect at most 3 items; max_steps 12). Clustering too fine: 17% of spans are unanimous-but-low-confidence (mostly OCR noise as `other`); real disagreements group by label set, but the text key splits them (item names: median embedding distance 0.63).
+- M5 dev run labeling done: 20261108-162007-4ac31b (train_0000-0049, OCR, tightened `other` prompt). Alpha 0.593. Headline: qwen 55.7%, llama 62.3%, gemma 75.4% -> **qwen and llama flagged (< 75%)**. All-agree matches v2 85.4%, majority 76.1%. On train_0000-0019 the tightened prompt raised qwen 55.3 -> 60.9%, llama 59.2 -> 65.5%, gemma 74.3 -> 75.6%.
+
 ## In progress
-- Milestone 5: plan written, waiting for go.
+- Waiting for the clustering decision; then `rulebook improve 20261108-162007-4ac31b` with stage timings.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
