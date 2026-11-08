@@ -49,6 +49,12 @@ class MemoryGuard:
         r.raise_for_status()
         return [m["name"] for m in r.json().get("models", [])]
 
+    @staticmethod
+    def same(a: str, b: str) -> bool:
+        """'nomic-embed-text' and 'nomic-embed-text:latest' are the same model."""
+        tag = lambda m: m if ":" in m else f"{m}:latest"  # noqa: E731
+        return tag(a) == tag(b)
+
     def unload(self, model: str) -> None:
         r = self.http.post("/api/generate", json={"model": model, "keep_alive": 0})
         r.raise_for_status()
@@ -65,13 +71,13 @@ class MemoryGuard:
     def prepare(self, model: str) -> None:
         """Call before using `model`. Unloads others; refuses if it would not fit."""
         loaded = self.loaded()
-        if model in loaded and len(loaded) == 1:
+        if len(loaded) == 1 and self.same(loaded[0], model):
             self.ready.add(model)
             return
         for other in loaded:
-            if other != model:
+            if not self.same(other, model):
                 self.unload(other)
-        if model in self.loaded():
+        if any(self.same(m, model) for m in self.loaded()):
             self.ready.add(model)
             return
         need = self.estimate_gb(model) + float(self.mem["headroom_gb"])

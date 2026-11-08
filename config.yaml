@@ -54,6 +54,7 @@ memory:
     gemma4:12b-16k: 9.8          # 8.0 + KV ~0.75 @16k (8 global + 40 sliding-window layers)
     gemma4:12b-8k: 9.6           # 8.0 + KV ~0.6 @8k (global 0.13 + sliding window 0.47)
     llama3.1:8b-8k: 6.9          # 4.9 + KV 1.0 @8k (32 layers x 8 kv heads x 128)
+    nomic-embed-text: 0.6        # 274 MB embedding model
 
 models:
   # Chosen 2026-11-08: three small models from different families, ~8-9 GB total,
@@ -83,6 +84,20 @@ ocr:   # PaddleOCR on CPU (no VRAM), local models copied from crumb, offline
 labeling:
   chunk_lines: 20        # lines per labeler call (decided 2026-11-08)
   other_label: other     # text CORD doesn't label; excluded from accuracy vs v2
+
+pipeline:
+  accept_min_confidence: 0.7   # a word is accepted when all 3 labelers agree at >= this
+
+clustering:   # SPEC section 2 + decisions 2026-11-08
+  max_group_size: 50           # bigger key groups are re-split with embeddings
+  tiny_group_size: 3           # a group smaller than this is "tiny"
+  tiny_share_resplit: 0.5      # re-cluster tiny groups with embeddings when they are > this share
+  distance_threshold: 0.25     # agglomerative clustering, cosine distance, average linkage
+  min_cluster_for_rule: 3      # smaller clusters go to the review queue as single items
+  max_clusters_per_run: 8      # top N clusters by size are processed; the rest -> review queue
+  holdout_fraction: 0.3        # share of a cluster kept from the rule writer for verification
+  min_size_for_holdout: 6      # smaller clusters are not split ("not held out")
+  seed: 0
 
 storage:
   db_path: rulebook.db

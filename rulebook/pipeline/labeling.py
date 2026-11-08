@@ -106,6 +106,12 @@ def label_doc(agent: Agent, doc: LabelDoc, labels: tuple[str, ...], chunk_lines:
     return accepted, failed
 
 
+def labeler_agent(name: str, labels: tuple[str, ...]) -> Agent:
+    agent = build_agent(name, output_schema=batch_model({0: [0]}, labels))
+    agent.system_prompt = agent.system_prompt.replace("{LABELS}", ", ".join(labels))
+    return agent
+
+
 def build_docs(text_source: TextSource, batch_size: int, offset: int) -> list[LabelDoc]:
     work = load_config()["data"]["splits"]["work"]
     receipts = load_split(work)[offset : offset + batch_size]  # first N by id (dev runs)
@@ -130,8 +136,7 @@ def run_batch(text_source: TextSource, batch_size: int, offset: int = 0,
     stats: list[LabelerStats] = []
     agents = labelers or LABELERS
     for name in agents:  # one model at a time; the memory guard unloads the previous one
-        agent = build_agent(name, output_schema=batch_model({0: [0]}, labels))
-        agent.system_prompt = agent.system_prompt.replace("{LABELS}", ", ".join(labels))
+        agent = labeler_agent(name, labels)
         st = LabelerStats(name, agent.model)
         for doc in docs:
             got, failed = label_doc(agent, doc, labels, chunk_lines, tracer, skills, st)

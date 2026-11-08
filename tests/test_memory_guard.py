@@ -65,3 +65,9 @@ def test_every_configured_model_has_an_estimate_that_fits_alone() -> None:
 
 def test_ollama_root() -> None:
     assert ollama_root("http://localhost:11434/v1") == "http://localhost:11434"
+
+
+def test_implicit_latest_tag_is_the_same_model() -> None:
+    ollama = FakeOllama(["nomic-embed-text:latest"])
+    ollama.guard(free=0.5).prepare("nomic-embed-text")
+    assert ollama.unloaded == []

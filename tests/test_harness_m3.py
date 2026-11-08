@@ -227,7 +227,7 @@ def test_build_agent_needs_prompt_and_schema() -> None:
         labels: list[str]
 
     with pytest.raises(AgentConfigError):
-        build_agent("diagnoser")  # no system prompt yet
+        build_agent("ocr_agent")  # no system prompt yet
     with pytest.raises(AgentConfigError):
         build_agent("labeler_a", system_prompt="label")  # schema missing
     a = build_agent("labeler_a", system_prompt="label", output_schema=LabelBatch)

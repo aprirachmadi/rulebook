@@ -292,3 +292,11 @@ def test_agent_temperatures_from_config() -> None:
     assert agent_temperature("verifier") == 0
     assert {agent_temperature(n) for n in ("rule_writer", "diagnoser", "orchestrator")} == {0.2}
     assert agent_temperature("unknown_agent") is None
+
+
+def test_embed_uses_embeddings_endpoint() -> None:
+    server = FakeServer({"data": [{"index": 1, "embedding": [0.0, 1.0]},
+                                  {"index": 0, "embedding": [1.0, 0.0]}]})
+    vecs = server.client().embed(["a", "b"])
+    assert vecs == [[1.0, 0.0], [0.0, 1.0]]
+    assert server.requests[0] == {"model": "fake", "input": ["a", "b"]}

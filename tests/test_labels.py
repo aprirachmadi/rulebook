@@ -194,3 +194,23 @@ def test_label_doc_chunks_and_targeted_repair(doc, tmp_path, monkeypatch) -> Non
     assert all(got[(c[0], 0)].label == "menu.price" for c in chunk_list)
     repair_task = server.requests[1]["messages"][1]["content"]
     assert "Label only the words marked below" in repair_task
+
+
+def test_patch_numbering_and_insertion() -> None:
+    from rulebook.tools.guideline import (
+        guideline_text,
+        next_rule_number,
+        render_patch,
+        sections,
+        with_patches,
+    )
+
+    text = guideline_text("v1")
+    assert sections(text) == ["1", "2", "3", "4"]
+    assert next_rule_number(text, "1") == "1.7"  # v1 has 1.1-1.6
+    assert next_rule_number(text, "1", {"1.7"}) == "1.8"
+    block = render_patch("1.7", "Use `menu.cnt` for x1.", ["x1", "x2", "2x"])
+    patched = with_patches(text, [("1", block)])
+    assert patched.index("### 1.7 Rule") < patched.index("## 2. Subtotal")
+    assert patched.index("### 1.6") < patched.index("### 1.7 Rule")
+    assert "Examples: `x1`; `x2`; `2x`" in patched

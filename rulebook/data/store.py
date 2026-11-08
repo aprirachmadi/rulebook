@@ -26,6 +26,18 @@ CREATE TABLE IF NOT EXISTS votes (
 CREATE TABLE IF NOT EXISTS label_failures (
   run_id TEXT, receipt_id TEXT, agent TEXT, error TEXT
 );
+CREATE TABLE IF NOT EXISTS clusters (
+  run_id TEXT, cluster_id INTEGER, labels TEXT, pattern TEXT, size INTEGER, items_json TEXT,
+  status TEXT, diagnosis TEXT, diagnosis_reason TEXT, PRIMARY KEY (run_id, cluster_id)
+);
+CREATE TABLE IF NOT EXISTS patches (
+  patch_id TEXT PRIMARY KEY, run_id TEXT, cluster_id INTEGER, rule_number TEXT, section TEXT,
+  rule_text TEXT, examples_json TEXT, rationale TEXT, affected_count INTEGER, held_out INTEGER,
+  status TEXT, verification_json TEXT, created_at TEXT, approver TEXT, decided_at TEXT
+);
+CREATE TABLE IF NOT EXISTS review_queue (
+  run_id TEXT, kind TEXT, ref_json TEXT, reason TEXT
+);
 """
 
 
@@ -73,4 +85,20 @@ def load_votes(db: sqlite3.Connection, run_id: str) -> dict[tuple[str, int, int]
         (run_id,),
     ):
         out.setdefault((rid, li, wi), {})[agent] = label
+    return out
+
+
+Vote = tuple[str, float, str]  # label, confidence, reason
+
+
+def load_votes_full(
+    db: sqlite3.Connection, run_id: str
+) -> dict[tuple[str, int, int], dict[str, Vote]]:
+    """(receipt_id, line_idx, word_idx) -> {agent: (label, confidence, reason)}."""
+    out: dict[tuple[str, int, int], dict[str, Vote]] = {}
+    for rid, li, wi, agent, label, conf, reason in db.execute(
+        "SELECT receipt_id, line_idx, word_idx, agent, label, confidence, reason FROM votes "
+        "WHERE run_id = ?", (run_id,),
+    ):
+        out.setdefault((rid, li, wi), {})[agent] = (label, conf, reason or "")
     return out

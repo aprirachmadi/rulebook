@@ -16,7 +16,7 @@ LABEL_KEYS = {"category", "label", "labels", "group_id", "sub_group_id"}
 # The only modules allowed to read raw ground truth.
 RAW_GT_ALLOWED = {"rulebook/data/cord.py", "rulebook/data/gold.py"}
 # The only modules allowed to call the gold-set accessor. The Verifier's tool joins this in M5.
-GOLD_ALLOWED = {"rulebook/data/gold.py"}
+GOLD_ALLOWED = {"rulebook/data/gold.py", "rulebook/tools/verify.py"}
 
 
 def _modules(*dirs: str) -> list[Path]:

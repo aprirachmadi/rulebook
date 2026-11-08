@@ -53,3 +53,7 @@
 | 2026-11-08 | Headline labeling metric | Agreement with v2 over CORD-matched words, counting "other" on a matched word as wrong. Excl-other stays secondary. Flag any labeler under 75% at M5's first run |
 | 2026-11-08 | Run reports | Every run report shows all-agree -> % matches v2 and majority -> % matches v2 |
 | 2026-11-08 | qwen-only rerun | Not done (user: no rerun); --labelers option kept, unused |
+| 2026-11-08 | M5 plan | Approved. Q1: cluster disagreement spans (consecutive words, same vote pattern) by normalized text. Q2: re-split with embeddings when >50% of groups are tiny (<3). Q3: develop on train_0000-0049, one 100-receipt run for acceptance. Q4: OCR text for work batch and gold set. Q5: verify every GUIDELINE_GAP patch, report timings |
+| 2026-11-08 | Cluster hold-out | Rule writer sees ~70% of a cluster (examples only from it); verifier measures cluster alpha gain on the held-out ~30%. Clusters too small to split are marked "not held out" |
+| 2026-11-08 | Clusters per run | Process only the top N clusters by size (N = 8, config); the rest stay in the review queue |
+| 2026-11-08 | Timings | Report per stage (cluster, diagnose, write, verify) after the 50-receipt dev run |

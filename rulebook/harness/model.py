@@ -173,14 +173,21 @@ class ModelClient:
             resp.used_fallback = bool(resp.tool_calls)
         return resp
 
-    def _post(self, body: dict[str, Any]) -> dict[str, Any]:
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Embeddings from the OpenAI-compatible /embeddings endpoint (same guard + retries)."""
+        if self.guard is not None:
+            self.guard.prepare(self.model)
+        data = self._post({"model": self.model, "input": texts}, path="/embeddings")
+        return [d["embedding"] for d in sorted(data["data"], key=lambda d: d["index"])]
+
+    def _post(self, body: dict[str, Any], path: str = "/chat/completions") -> dict[str, Any]:
         """POST with retries and exponential backoff on network errors, 429 and 5xx."""
         last: Exception | None = None
         for attempt in range(self.max_retries + 1):
             if attempt:
                 time.sleep(self.backoff_s * 2 ** (attempt - 1))
             try:
-                r = self._http.post("/chat/completions", json=body)
+                r = self._http.post(path, json=body)
             except httpx.TransportError as e:
                 last = e
                 continue

@@ -52,14 +52,33 @@ def run(
     text_source: str = typer.Option("ocr", help="ocr | gold"),
     offset: int = typer.Option(0, help="Skip this many receipts first"),
     labelers: str = typer.Option("", help="Comma-separated subset, e.g. labeler_a (default: all)"),
+    improve: bool = typer.Option(False, help="Then cluster, diagnose, write and verify (M5)"),
 ) -> None:
-    """Label a batch with the 3 labelers and report agreement (M4)."""
+    """Label a batch with the 3 labelers and report agreement (M4); optionally improve (M5)."""
     from rulebook.pipeline.labeling import run_batch
 
     if text_source not in ("ocr", "gold"):
         raise typer.BadParameter("text-source must be ocr or gold")
     subset = [x.strip() for x in labelers.split(",") if x.strip()] or None
-    run_batch(text_source, batch_size, offset, subset)  # type: ignore[arg-type]
+    summary = run_batch(text_source, batch_size, offset, subset)  # type: ignore[arg-type]
+    if improve:
+        from rulebook.pipeline.improve import improve as run_improve
+
+        run_improve(summary["run_id"])
+
+
+@app.command()
+def improve(
+    run_id: str,
+    max_clusters: int = typer.Option(0, help="Override clustering.max_clusters_per_run"),
+) -> None:
+    """Cluster, diagnose, write and verify on an already-labeled run (M5)."""
+    from rulebook.config import load_config
+    from rulebook.pipeline.improve import improve as run_improve
+
+    if max_clusters:
+        load_config()["clustering"]["max_clusters_per_run"] = max_clusters
+    run_improve(run_id)
 
 
 @app.command()
