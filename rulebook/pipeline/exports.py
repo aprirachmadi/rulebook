@@ -119,8 +119,16 @@ def loop_report(db: sqlite3.Connection, loop_id: str, out_dir: Path) -> Path:
            "|---|---|---|---|---|---|"]
     for b, rid, rrid, vb, va, ab, aa, _, _ in rows:
         out.append(f"| {b} | {rid} | {rrid or '-'} | {vb} -> {va} | {fmt(ab)} | {fmt(aa)} |")
-    for b, _, _, _, _, _, _, pj, tj in rows:
+    for b, rid, _, _, _, _, _, pj, tj in rows:
         out += ["", f"## Batch {b}", "", f"Timings (s): {tj}", ""]
+        imp = ROOT / load_config()["harness"]["runs_dir"] / rid / "improve" / "improve.json"
+        if imp.exists() and (res := json.loads(imp.read_text())).get("orchestrator") == "agent":
+            rep = res.get("orchestrator_report") or {}
+            out.append(f"Orchestrator agent ({res.get('orchestrator_stop')}, "
+                       f"{res.get('orchestrator_steps')} steps): {rep.get('summary', '-')}")
+            out += [f"- cluster {d['cluster_id']}: {d['action']} ({d['reason'] or 'no reason'})"
+                    for d in res.get("orchestrator_decisions", [])]
+            out.append("")
         for p in json.loads(pj or "[]"):
             v = p.get("verification", {})
             out.append(f"- rule {p['rule_number']} ({p['patch_id']}): **{p['decision']}** by "

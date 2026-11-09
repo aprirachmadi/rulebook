@@ -228,6 +228,7 @@ class LoopIn(BaseModel):
     offset: int = Field(default=0, ge=0)
     text_source: Literal["ocr", "gold"] = "ocr"
     max_clusters: int = Field(default=0, ge=0)
+    orchestrator: Literal["agent", "code"] = "agent"
 
 
 @app.post("/api/loops")
@@ -242,7 +243,8 @@ def start_loop(body: LoopIn) -> dict:
     cmd = [sys.executable, "-m", "rulebook.pipeline.run", "loop", "--loop-id", loop_id,
            "--batch-size", str(body.batch_size), "--batches", str(body.batches),
            "--offset", str(body.offset), "--text-source", body.text_source,
-           "--max-clusters", str(body.max_clusters), "--approver", "queue"]
+           "--max-clusters", str(body.max_clusters), "--approver", "queue",
+           "--orchestrator", body.orchestrator]
     with log.open("w") as fh:
         subprocess.Popen(cmd, cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT,
                          start_new_session=True,

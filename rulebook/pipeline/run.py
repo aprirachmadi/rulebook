@@ -90,14 +90,16 @@ def loop(
     max_clusters: int = typer.Option(0, help="Override clustering.max_clusters_per_run"),
     approver: str = typer.Option("queue", help="queue (UI) | cli"),
     loop_id: str = typer.Option("", help="Loop id (default: new)"),
+    orchestrator: str = typer.Option("agent", help="agent (LLM orchestrator) | code (fallback)"),
 ) -> None:
     """M6: label -> improve -> approval -> apply -> relabel -> exports, batch by batch."""
     from rulebook.pipeline.orchestrate import run_loop
 
-    if text_source not in ("ocr", "gold") or approver not in ("queue", "cli"):
-        raise typer.BadParameter("text-source must be ocr|gold, approver queue|cli")
+    if text_source not in ("ocr", "gold") or approver not in ("queue", "cli") \
+            or orchestrator not in ("agent", "code"):
+        raise typer.BadParameter("use ocr|gold, queue|cli, agent|code")
     run_loop(text_source, batch_size, batches, offset, max_clusters, approver,  # type: ignore
-             loop_id or None)
+             loop_id or None, orchestrator)  # type: ignore
 
 
 @app.command()

@@ -4,8 +4,9 @@ label -> cluster -> diagnose -> write -> verify (advisory) -> approval -> apply 
 exports -> next batch. `apply_patch` and `relabel` are `needs_approval` tools (SPEC section 3),
 so every change waits for a human: `QueueApprover` (the UI) or `CLIApprover` (terminal).
 
-The loop itself is plain code that calls the agents' stages; the SPEC's LLM orchestrator
-agent with `delegate` is logged under "improve later" (decision 2026-11-09: end to end first).
+The improve round is run by the LLM orchestrator agent (`orchestrator_agent.py`: picks
+clusters, delegates to diagnoser / rule writer / verifier, submits patches) or, with
+`orchestrator="code"`, by the plain-code fallback `improve()`.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from rulebook.harness.tools import ToolRegistry, tool
 from rulebook.pipeline import exports
 from rulebook.pipeline.improve import improve
 from rulebook.pipeline.labeling import LABELERS, run_batch
+from rulebook.pipeline.orchestrator_agent import improve_with_agent
 from rulebook.tools.guideline import GUIDELINES, current_version, publish_version, render_patch
 
 console = Console()
@@ -65,7 +67,10 @@ def _patch_words(items_json: str) -> list[tuple[str, int, int]]:
 
 def run_loop(text_source: str, batch_size: int, batches: int, offset: int = 0,
              max_clusters: int = 0, approver_kind: Literal["queue", "cli"] = "queue",
-             loop_id: str | None = None) -> str:
+             loop_id: str | None = None,
+             orchestrator: Literal["agent", "code"] = "agent") -> str:
+    """`orchestrator="agent"`: the LLM orchestrator picks clusters and delegates (default).
+    `"code"`: the plain-code fallback that diagnoses every open cluster in order."""
     cfg = load_config()
     if max_clusters:
         cfg["clustering"]["max_clusters_per_run"] = max_clusters
@@ -73,7 +78,7 @@ def run_loop(text_source: str, batch_size: int, batches: int, offset: int = 0,
     db = connect()
     settings = {"text_source": text_source, "batch_size": batch_size, "batches": batches,
                 "offset": offset, "max_clusters": cfg["clustering"]["max_clusters_per_run"],
-                "approver": approver_kind}
+                "approver": approver_kind, "orchestrator": orchestrator}
     db.execute("INSERT OR REPLACE INTO loops VALUES (?, ?, ?, 'running', 'starting', ?)",
                (loop_id, _now(), json.dumps(settings), _now()))
     db.commit()
@@ -126,7 +131,7 @@ def run_loop(text_source: str, batch_size: int, batches: int, offset: int = 0,
             timings["label"] = (datetime.now(UTC) - t0).total_seconds()
 
             step(f"batch {b}: cluster, diagnose, write, verify ({run_id})")
-            res = improve(run_id)
+            res = improve_with_agent(run_id) if orchestrator == "agent" else improve(run_id)
             timings |= res["timings_s"]
 
             decided, rules = [], {}

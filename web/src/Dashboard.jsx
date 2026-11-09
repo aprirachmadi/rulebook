@@ -53,10 +53,10 @@ function AlphaChart({ rows }) {
 
 function StartLoop({ onStarted }) {
   const [f, setF] = useState({ batch_size: 10, batches: 1, offset: 50, text_source: "ocr",
-                               max_clusters: 2 });
+                               max_clusters: 2, orchestrator: "agent" });
   const [err, setErr] = useState("");
-  const set = (k) => (e) => setF({ ...f, [k]: k === "text_source" ? e.target.value
-                                                                   : Number(e.target.value) });
+  const set = (k) => (e) => setF({ ...f, [k]: ["text_source", "orchestrator"].includes(k)
+    ? e.target.value : Number(e.target.value) });
   const start = () => post("/api/loops", f).then(onStarted).catch((e) => setErr(String(e)));
   return (
     <div className="card">
@@ -70,6 +70,11 @@ function StartLoop({ onStarted }) {
         <label>text source
           <select value={f.text_source} onChange={set("text_source")}>
             <option>ocr</option><option>gold</option>
+          </select>
+        </label>
+        <label>orchestrator
+          <select value={f.orchestrator} onChange={set("orchestrator")}>
+            <option value="agent">agent (LLM)</option><option value="code">code (fallback)</option>
           </select>
         </label>
         <button onClick={start}>Start</button>

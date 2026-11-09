@@ -76,6 +76,7 @@ def sandbox(tmp_path: Path, monkeypatch):
 
     monkeypatch.setattr(orchestrate, "run_batch", fake_run_batch)
     monkeypatch.setattr(orchestrate, "improve", fake_improve)
+    monkeypatch.setattr(orchestrate, "improve_with_agent", fake_improve)
     return tmp_path
 
 
