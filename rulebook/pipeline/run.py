@@ -125,3 +125,7 @@ def m3_check(
         r, applied = m3.check_approval(tracer, CLIApprover(console=console))
         console.print(f"[bold]approval[/]: applied={applied} answer={str(r.output)[:80]!r}")
     console.print(f"trace valid: {len(read_trace(tracer.path))} records -> {tracer.path}")
+
+
+if __name__ == "__main__":
+    app()
