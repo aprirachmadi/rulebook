@@ -149,7 +149,7 @@ Labelers use `output_schema` (word spans, see section 1) and run without tool ca
 - v1 is **not** written from train labels: definitions come from the class names, examples only from non-gold dev receipts (never train, never test).
 - **Intentionally incomplete**: don't cover discounts vs subtotal discounts, service charge, item modifiers/sub‑items, void lines, or "etc" fields. The agent should discover these.
 - Each patch = a numbered rule (`7.2`) with: rule text, 3–5 example lines (from work set only), rationale, affected line count. Stored as `guidelines/patches/<n>.json` and rendered into `guidelines/v<N>.md`.
-- Revert rule: if the Verifier finds gold‑set accuracy drops or alpha on the cluster doesn't improve by ≥ 0.05, the patch is auto‑rejected before reaching the human.
+- Verifier is **advisory** (decision 2026-11-09, replaces the auto-reject rule): it still computes gold-set accuracy and cluster alpha and records a pass/fail verdict against the thresholds, but every patch goes to the review queue with those numbers and the human decides.
 
 ---
 

@@ -1,8 +1,9 @@
 """M5 on a labeled run: cluster -> diagnose -> write -> verify, with timings per stage.
 
 Clustering, diagnosis and rule writing read only labeler votes (never v2). Verification reads
-gold labels only through `rulebook.tools.verify` (the sanctioned gold-set route). Patches stop
-at "verified" / "rejected"; approval and applying them is Milestone 6.
+gold labels only through `rulebook.tools.verify` (the sanctioned gold-set route). The verifier is
+advisory (decision 2026-11-09): every patch is "proposed" with its numbers and goes to the
+review queue, where a human approves, edits or rejects it.
 """
 
 from __future__ import annotations
@@ -293,7 +294,7 @@ def improve(run_id: str) -> dict:
                          for i in cand.draft.example_item_ids],
             "rationale": cand.draft.rationale,
             "affected_count": sum(len(it.words) for it in cand.cluster.items),
-            "held_out": cand.cluster.held_out, "status": v["status"], "verification": v,
+            "held_out": cand.cluster.held_out, "status": "proposed", "verification": v,
             "guideline_version": version, "created_at": now,
         }
         db.execute("INSERT OR REPLACE INTO patches VALUES "
@@ -301,14 +302,12 @@ def improve(run_id: str) -> dict:
                    (cand.patch_id, run_id, cand.cluster.cluster_id, cand.number,
                     cand.draft.section, cand.draft.rule_text, json.dumps(record["examples"]),
                     cand.draft.rationale, record["affected_count"], int(cand.cluster.held_out),
-                    v["status"], json.dumps(v), now, None, None))
+                    "proposed", json.dumps(v), now, None, None))
+        db.execute("INSERT INTO review_queue VALUES (?, ?, ?, ?)",
+                   (run_id, "patch", json.dumps({"patch_id": cand.patch_id}),
+                    f"proposed rule {cand.number}; verifier {v['verdict']}"))
         (out_dir / f"{cand.patch_id}.json").write_text(json.dumps(record, indent=1,
                                                                   ensure_ascii=False))
-        if v["status"] == "verified":
-            pdir = ROOT / "guidelines" / "patches"
-            pdir.mkdir(parents=True, exist_ok=True)
-            (pdir / f"{cand.patch_id}.json").write_text(json.dumps(record, indent=1,
-                                                                   ensure_ascii=False))
     db.commit()
 
     result = {
@@ -389,9 +388,9 @@ def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: 
         if a_after - a_before < th["min_cluster_alpha_gain"]:
             reasons.append(f"cluster alpha gain {a_after - a_before:+.3f} < "
                            f"{th['min_cluster_alpha_gain']}")
-        c.verification = {
-            "status": "rejected" if reasons else "verified",
-            "reject_reasons": reasons,
+        c.verification = {  # advisory (decision 2026-11-09): the human decides
+            "verdict": "fail" if reasons else "pass",
+            "fail_reasons": reasons,
             "gold_accuracy_before": round(mean_b, 4), "gold_accuracy_after": round(mean_a, 4),
             "gold_accuracy_by_labeler": {a: [round(acc_before[a], 4), round(acc_after[a], 4)]
                                          for a in agents},
@@ -400,7 +399,7 @@ def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: 
             "held_out_words": len(held[c.patch_id]),
             "gold_verified": bool((set(c.cluster.labels) - {"other"}) & gold_classes),
         }
-        console.print(f"  patch {c.number}: {c.verification['status']} "
+        console.print(f"  patch {c.number}: verifier {c.verification['verdict']} "
                       f"(gold {mean_b:.3f} -> {mean_a:.3f}, cluster alpha "
                       f"{a_before:.3f} -> {a_after:.3f}) {'; '.join(reasons)}")
     return control

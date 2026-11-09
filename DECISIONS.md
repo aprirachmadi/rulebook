@@ -67,3 +67,7 @@
 | 2026-11-09 | Shared mistakes | After the first verified patches, measure whether they also fix any of the 70 shared-mistake words |
 | 2026-11-09 | Verifier/rule-writer fixes | All approved: (1) hold-out relabels whole receipts, scores only held words; (2) no-op control patch measures the gold noise floor (reported, not used to judge); (3) rule writer sees the labelers' instructions; (4) cluster items + context lines go directly in the diagnoser's prompt, report how many diagnoses hit max_steps; (5) rule writer is told about the keyword/value split across two lines |
 | 2026-11-09 | Chunking ablation | Not now; logged for M8 |
+| 2026-11-09 | Priority | End to end first, quality later. Stop the rerun. Log quality issues in PROGRESS.md under "improve later"; don't fix now. Only stop if something blocks the end-to-end run |
+| 2026-11-09 | Verifier | Advisory: computes and records numbers (pass/fail verdict), no auto-reject; every patch to the review queue with the numbers; the user decides |
+| 2026-11-09 | M6 | Orchestrator loop: label -> cluster -> diagnose -> write -> verify -> approval -> apply -> relabel -> next batch; exports: receipt JSON, guideline vN, trace, run report |
+| 2026-11-09 | M7 | FastAPI + React (Vite), simple: dashboard (run metrics, alpha per guideline version, changelog), review queue (lines with labels/status, patch with verifier numbers, approve/edit/reject driving the loop), trace viewer |

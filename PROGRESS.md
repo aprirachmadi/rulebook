@@ -93,7 +93,17 @@
 - Shared-mistake measurement skipped: no verified patch yet.
 
 ## In progress
-- Waiting for the user on verifier/rule-writer fixes: (1) hold-out relabels lines without their receipt, so the disagreement vanishes (cluster 3 before-alpha 1.0); (2) unknown gold noise floor (no-op control patch); (3) rules 3.8 and 1.7 push toward `other`, against the labeler prompt.
+- New priority (user, 2026-11-09): end to end first, quality later. Verifier advisory; M6 orchestrator loop + exports; M7 UI (FastAPI + React/Vite). The rerun with fixes 1-5 was stopped mid-verify (after a fixed crash; that attempt's diagnosis gave 7/8 GUIDELINE_GAP, 6/8 forced at max_steps).
+
+## Improve later (quality; not fixing now, user 2026-11-09)
+- **Verifier noise:** gemma lost 5.6-8.4 gold points on every patch, including one matching CORD. The no-op control patch is built (reported per run); use it to set the thresholds. Held-out samples are tiny (7-9 words).
+- **Diagnoser step limit:** 14/16 diagnoses forced at max_steps before inlining the cluster; 6/8 after. Needs fewer tool calls or a higher limit.
+- **Chunking test:** see the M8 entry (no-chunk ablation on 20 gold-text receipts).
+- **Shared mistakes:** 70 of 82 all-agree-but-wrong OCR words are shared mistakes (top: `menu.cnt` -> `menu.nm` 20). Measure whether verified patches fix them; consistency checks (number labeled `menu.nm`).
+- **Vision re-read agent:** decision C put it in M5; deferred until after M5 acceptance.
+- **OCR word matching:** e.g. OCR `B` matched to CORD `20.000`.
+- **Rule quality:** rules 3.8 / 1.7 pushed toward `other` (fixed by showing labeler instructions; unverified). Real gap: keyword and value split across two OCR lines.
+- **M5 acceptance** (verified patch on a 100-receipt run) is not met; verifier is advisory for now.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
