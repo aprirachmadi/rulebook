@@ -82,6 +82,25 @@ def improve(
 
 
 @app.command()
+def loop(
+    batch_size: int = typer.Option(10, help="Receipts per batch (first N by id)"),
+    batches: int = typer.Option(1, help="Number of batches"),
+    text_source: str = typer.Option("ocr", help="ocr | gold"),
+    offset: int = typer.Option(0, help="Start at this receipt"),
+    max_clusters: int = typer.Option(0, help="Override clustering.max_clusters_per_run"),
+    approver: str = typer.Option("queue", help="queue (UI) | cli"),
+    loop_id: str = typer.Option("", help="Loop id (default: new)"),
+) -> None:
+    """M6: label -> improve -> approval -> apply -> relabel -> exports, batch by batch."""
+    from rulebook.pipeline.orchestrate import run_loop
+
+    if text_source not in ("ocr", "gold") or approver not in ("queue", "cli"):
+        raise typer.BadParameter("text-source must be ocr|gold, approver queue|cli")
+    run_loop(text_source, batch_size, batches, offset, max_clusters, approver,  # type: ignore
+             loop_id or None)
+
+
+@app.command()
 def m3_check(
     part: str = typer.Argument("all", help="skill | budget | approval | all"),
     budget: int = typer.Option(3000, help="Token budget for the long run"),

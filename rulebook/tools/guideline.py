@@ -27,9 +27,10 @@ def guideline_text(version: str) -> str:
     return re.sub(r"<!--.*?-->\s*", "", text, flags=re.DOTALL).strip()
 
 
-def sync_skill(version: str | None = None, path: Path = SKILL_PATH) -> str:
+def sync_skill(version: str | None = None, path: Path | None = None) -> str:
     """Write the `cord-guideline` skill for `version` (default: current). Returns the version."""
     version = version or current_version()
+    path = path or SKILL_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "---\nname: cord-guideline\n"
@@ -82,3 +83,24 @@ def write_skill_text(text: str, version_label: str, root: Path) -> Path:
         encoding="utf-8",
     )
     return root
+
+
+def publish_version(section: str, block: str, note: str) -> str:
+    """Write guidelines/v<N+1>.md = current version + this rule, sync the skill, return the
+    new version. The changelog line goes in an HTML comment (labelers never see it)."""
+    prev = current_version()
+    new = f"v{int(prev[1:]) + 1}"
+    old_log = re.findall(r"<!-- changelog: (.*?) -->",
+                         (GUIDELINES / f"{prev}.md").read_text(encoding="utf-8"))
+    log = [*old_log, f"{new}: {note}"]
+    header = "\n".join(f"<!-- changelog: {line} -->" for line in log)
+    text = with_patches(guideline_text(prev), [(section, block)])
+    (GUIDELINES / f"{new}.md").write_text(f"{header}\n{text}\n", encoding="utf-8")
+    sync_skill(new)
+    return new
+
+
+def changelog(version: str | None = None) -> list[str]:
+    version = version or current_version()
+    return re.findall(r"<!-- changelog: (.*?) -->",
+                      (GUIDELINES / f"{version}.md").read_text(encoding="utf-8"))

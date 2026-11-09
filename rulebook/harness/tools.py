@@ -81,6 +81,7 @@ class ToolRegistry:
         max_chars: int,
         approver: Approver | None = None,
         agent: str = "",
+        context: dict[str, Any] | None = None,
     ) -> ToolResult:
         """Validate args, get approval if needed, call the tool, return a compact result.
 
@@ -98,7 +99,8 @@ class ToolRegistry:
         if t.needs_approval:
             if approver is None:
                 return ToolResult(False, f"error: tool {name!r} needs approval; no approver set")
-            approval = approver.request(ApprovalRequest(name, parsed.model_dump(), agent))
+            approval = approver.request(ApprovalRequest(name, parsed.model_dump(), agent,
+                                                        context or {}))
             if approval.decision == "reject":
                 note = f": {approval.note}" if approval.note else ""
                 return ToolResult(False, f"rejected by {approval.approver}{note}", approval)

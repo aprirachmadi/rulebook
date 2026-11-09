@@ -1,4 +1,5 @@
-"""SQLite store (`rulebook.db`). M4 tables: runs, docs, votes, label_failures."""
+"""SQLite store (`rulebook.db`). M4: runs, docs, votes, label_failures. M5: clusters, patches,
+review_queue. M6: loops, loop_batches, final_labels (approvals live in harness/guard.py)."""
 
 from __future__ import annotations
 
@@ -37,6 +38,19 @@ CREATE TABLE IF NOT EXISTS patches (
 );
 CREATE TABLE IF NOT EXISTS review_queue (
   run_id TEXT, kind TEXT, ref_json TEXT, reason TEXT
+);
+CREATE TABLE IF NOT EXISTS loops (
+  loop_id TEXT PRIMARY KEY, created_at TEXT, config_json TEXT, status TEXT, step TEXT,
+  updated_at TEXT
+);
+CREATE TABLE IF NOT EXISTS loop_batches (
+  loop_id TEXT, batch INTEGER, run_id TEXT, relabel_run_id TEXT, version_before TEXT,
+  version_after TEXT, alpha_before REAL, alpha_after REAL, patches_json TEXT, timings_json TEXT,
+  PRIMARY KEY (loop_id, batch)
+);
+CREATE TABLE IF NOT EXISTS final_labels (
+  run_id TEXT, receipt_id TEXT, line_idx INTEGER, word_idx INTEGER, label TEXT, status TEXT,
+  rule_id TEXT, PRIMARY KEY (run_id, receipt_id, line_idx, word_idx)
 );
 """
 
