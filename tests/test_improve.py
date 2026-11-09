@@ -194,3 +194,10 @@ def test_context_lines_show_neighbors_in_reading_order() -> None:
     doc = _doc("r1", [["A"], ["TOTAL"], ["45.500"], ["CASH"], ["50.000"]])
     assert context_lines(doc, 2) == {"above": ["A", "TOTAL"], "below": ["CASH", "50.000"]}
     assert context_lines(doc, 0) == {"above": [], "below": ["TOTAL", "45.500"]}
+
+
+def test_held_receipts_are_whole() -> None:
+    from rulebook.pipeline.improve import _held_receipts
+    docs = {"r1": _doc("r1", [["A"], ["TOTAL"], ["45.500"]]), "r2": _doc("r2", [["B"]])}
+    got = _held_receipts(docs, [("r1", 2, 0)])
+    assert [d.receipt_id for d in got] == ["r1"] and len(got[0].lines) == 3

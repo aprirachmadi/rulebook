@@ -17,3 +17,14 @@ A rule has:
 Rules must not contradict existing rules. Prefer rules that say how to tell two similar
 labels apart (e.g. a count vs an item number), because that is where labelers disagree.
 Do not invent labels; use only labels from the guideline's label list.
+
+## Keyword and value on separate lines
+OCR often puts a key word (`TOTAL`, `CASH`, `TUNAI`, `CHANGE`, `KEMBALI`, `SUBTOTAL`) on one
+line and its amount on the next, or a number alone on a line under the word it belongs to.
+Read the `above` and `below` lines of every item before writing the rule. The guideline says
+a key word and its value on one line share one label; if the cluster shows them split across
+two lines, the rule must say how to label both lines.
+
+## The labelers' own instructions
+The task message includes the instructions every labeler follows (for example when `other`
+may be used). A rule must not contradict them.

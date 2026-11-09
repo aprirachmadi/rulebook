@@ -65,6 +65,23 @@ def _item_view(ctx: RunContext, it: Item) -> dict:
             "votes": votes_str(it.votes)}
 
 
+def cluster_view(ctx: RunContext, cluster_id: int) -> str:
+    """The cluster as JSON: shared labels, text pattern, items with context lines and votes.
+    The rule writer's view ("visible") leaves out the held-out items."""
+    c = ctx.clusters.get(cluster_id)
+    if c is None:
+        return f"error: no cluster {cluster_id}; have {sorted(ctx.clusters)}"
+    items = c.visible if ctx.view == "visible" else c.items
+    return json.dumps({
+        "cluster_id": c.cluster_id,
+        "labels_voted": list(c.labels),
+        "text_pattern": c.pattern,
+        "items_total": len(items),
+        "items_shown": min(len(items), MAX_ITEMS_SHOWN),
+        "items": [_item_view(ctx, it) for it in items[:MAX_ITEMS_SHOWN]],
+    }, ensure_ascii=False, separators=(",", ":"))
+
+
 class ClusterArgs(BaseModel):
     cluster_id: int
 
@@ -93,18 +110,7 @@ def build_registry(ctx: RunContext) -> ToolRegistry:
     @tool("get_cluster", "Show a cluster of disagreements: shared labels, text pattern and its "
           "items with each labeler's vote.", registry=reg)
     def get_cluster(a: ClusterArgs) -> str:
-        c = ctx.clusters.get(a.cluster_id)
-        if c is None:
-            return f"error: no cluster {a.cluster_id}; have {sorted(ctx.clusters)}"
-        items = c.visible if ctx.view == "visible" else c.items
-        return json.dumps({
-            "cluster_id": c.cluster_id,
-            "labels_voted": list(c.labels),
-            "text_pattern": c.pattern,
-            "items_total": len(items),
-            "items_shown": min(len(items), MAX_ITEMS_SHOWN),
-            "items": [_item_view(ctx, it) for it in items[:MAX_ITEMS_SHOWN]],
-        }, ensure_ascii=False, separators=(",", ":"))
+        return cluster_view(ctx, a.cluster_id)
 
     @tool("get_votes", "Every word of one receipt line with each labeler's label, confidence "
           "and reason.", registry=reg)

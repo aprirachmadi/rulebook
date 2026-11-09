@@ -65,3 +65,5 @@
 | 2026-11-09 | Diagnoser all-AMBIGUOUS fix | Option B: sharpen AMBIGUOUS vs GUIDELINE_GAP in the taxonomy skill, and show 2 lines above/below each item to the diagnoser and rule writer |
 | 2026-11-09 | Chunk boundaries | Check whether clusters 4-7 concentrate at chunk boundaries; if yes, propose overlapping chunks (context lines shown, not labeled) and wait for OK before changing labelers |
 | 2026-11-09 | Shared mistakes | After the first verified patches, measure whether they also fix any of the 70 shared-mistake words |
+| 2026-11-09 | Verifier/rule-writer fixes | All approved: (1) hold-out relabels whole receipts, scores only held words; (2) no-op control patch measures the gold noise floor (reported, not used to judge); (3) rule writer sees the labelers' instructions; (4) cluster items + context lines go directly in the diagnoser's prompt, report how many diagnoses hit max_steps; (5) rule writer is told about the keyword/value split across two lines |
+| 2026-11-09 | Chunking ablation | Not now; logged for M8 |

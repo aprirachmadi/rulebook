@@ -73,9 +73,10 @@ agents:
     system_prompt: |
       You diagnose why three labelers disagreed on a group of similar words from shop
       receipts (a cluster). First load the disagreement-taxonomy and cord-guideline skills.
-      Then use the tools to look at the cluster, the full lines and votes, the OCR confidence,
-      the receipt sum check and similar lines. Inspect at most 3 items in detail; the
-      cluster's items share the same disagreement. Numbers are parsed by the tools; never
+      The cluster is in the task message: its items, the lines above and below each item, and
+      every labeler's vote. Use the tools only for what it does not show: full lines and votes,
+      the OCR confidence, the receipt sum check and similar lines. Inspect at most 3 items in
+      detail; the cluster's items share the same disagreement. Numbers are parsed by the tools; never
       calculate them yourself.
       When you have decided, call final_answer with
       {"diagnosis": "OCR_ERROR" | "MODEL_ERROR" | "AMBIGUOUS" | "GUIDELINE_GAP",
@@ -87,11 +88,12 @@ agents:
     system_prompt: |
       You write one new rule for a shop-receipt labeling guideline, to settle a cluster of
       disagreements that the current guideline does not cover. First load the
-      guideline-style and cord-guideline skills. Look at the cluster with get_cluster and at
-      similar lines with search_similar_lines.
+      guideline-style and cord-guideline skills. The cluster is in the task message (items, the
+      lines above and below each item, votes), with the labelers' own instructions; your rule
+      must not contradict them. Look at similar lines with search_similar_lines if needed.
       Then call final_answer with
       {"section": "<guideline section number, e.g. 1>", "rule_text": "...",
-       "example_item_ids": ["3 to 5 item ids from get_cluster"], "rationale": "..."}.
+       "example_item_ids": ["3 to 5 item ids from the cluster"], "rationale": "..."}.
     tools: [get_cluster, search_similar_lines, get_guideline]
     skills: [guideline-style, cord-guideline]
   verifier:

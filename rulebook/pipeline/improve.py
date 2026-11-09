@@ -33,7 +33,7 @@ from rulebook.pipeline.labeling import (
     labeler_agent,
     labeler_labels,
 )
-from rulebook.tools.agent_tools import RunContext, build_registry
+from rulebook.tools.agent_tools import RunContext, build_registry, cluster_view
 from rulebook.tools.clusters import (
     Cluster,
     cluster_items,
@@ -62,6 +62,10 @@ from rulebook.tools.verify import (
 )
 
 console = Console()
+# No-op control patch: changes no labeling decision. Its gold-accuracy change is the noise
+# floor of "any edit to the guideline text" (decision 2026-11-09). Reported, not used to judge.
+CONTROL_SECTION = "4"
+CONTROL_RULE = "Read each line in full before you choose its labels."
 Diag = Literal["OCR_ERROR", "MODEL_ERROR", "AMBIGUOUS", "GUIDELINE_GAP"]
 
 
@@ -111,14 +115,11 @@ class Candidate:
     verification: dict = field(default_factory=dict)
 
 
-def _sub_docs(docs: dict[str, LabelDoc], words: list[tuple[str, int, int]]) -> list[LabelDoc]:
-    """Receipts reduced to the lines that hold these words (for hold-out relabeling)."""
-    lines: dict[str, set[int]] = {}
-    for rid, li, _ in words:
-        lines.setdefault(rid, set()).add(li)
-    return [docs[rid].model_copy(update={"lines": [ln for ln in docs[rid].lines
-                                                   if ln.line_idx in keep]})
-            for rid, keep in sorted(lines.items())]
+def _held_receipts(docs: dict[str, LabelDoc],
+                   words: list[tuple[str, int, int]]) -> list[LabelDoc]:
+    """Whole receipts that hold these words. They are relabeled in full (as in the run) and
+    only the held words are scored (decision 2026-11-09)."""
+    return [docs[rid] for rid in sorted({rid for rid, _, _ in words})]
 
 
 def _item_words(items: list) -> list[tuple[str, int, int]]:
@@ -202,13 +203,16 @@ def improve(run_id: str) -> dict:
     t0 = time.perf_counter()
     diagnoser = build_agent("diagnoser", output_schema=Diagnosis)
     diagnoses: dict[int, Diagnosis | None] = {}
+    forced = 0  # diagnoses that hit max_steps and were forced
     for c in clusters:
         ctx.view = "all"
         res = run_agent(diagnoser,
                         f"Diagnose cluster {c.cluster_id}: {len(c.items)} items, labels voted "
-                        f"{list(c.labels)}, text pattern '{c.pattern}'.",
+                        f"{list(c.labels)}, text pattern '{c.pattern}'.\n\nThe cluster:\n"
+                        f"{cluster_view(ctx, c.cluster_id)}",
                         registry=build_registry(ctx), tracer=tracer, skills=skills)
         diagnoses[c.cluster_id] = res.output
+        forced += res.stop_reason == "forced_final"
         d = res.output
         db.execute("UPDATE clusters SET diagnosis = ?, diagnosis_reason = ?, status = ? "
                    "WHERE run_id = ? AND cluster_id = ?",
@@ -222,6 +226,7 @@ def improve(run_id: str) -> dict:
         console.print(f"  cluster {c.cluster_id} ({len(c.items)} items, {c.pattern!r}, "
                       f"{list(c.labels)}): {d.diagnosis if d else 'FAILED'}")
     timings["diagnose"] = time.perf_counter() - t0
+    console.print(f"  diagnoses forced at max_steps: {forced}/{len(clusters)}")
 
     # --- write ---
     t0 = time.perf_counter()
@@ -230,6 +235,8 @@ def improve(run_id: str) -> dict:
     candidates: list[Candidate] = []
     gaps = [c for c in clusters
             if (d := diagnoses[c.cluster_id]) and d.diagnosis == "GUIDELINE_GAP"]
+    labeler_rules = build_agent(agents[0]).system_prompt.replace(
+        "{LABELS}", "(the guideline's label list)")
     for c in gaps:
         ctx.view = "visible"
         visible = {it.item_id: it for it in c.visible}
@@ -238,7 +245,9 @@ def improve(run_id: str) -> dict:
         res = run_agent(writer,
                         f"Write a rule for cluster {c.cluster_id} (diagnosed GUIDELINE_GAP: "
                         f"{diagnoses[c.cluster_id].reason}). Labels voted {list(c.labels)}, "
-                        f"text pattern '{c.pattern}'.",
+                        f"text pattern '{c.pattern}'.\n\nThe cluster (the part you may use):\n"
+                        f"{cluster_view(ctx, c.cluster_id)}\n\nThe labelers' instructions "
+                        f"(your rule must not contradict them):\n{labeler_rules}",
                         registry=build_registry(ctx), tracer=tracer, skills=skills)
         if res.output is None:
             console.print(f"  cluster {c.cluster_id}: rule writer failed ({res.stop_reason})")
@@ -257,8 +266,14 @@ def improve(run_id: str) -> dict:
 
     # --- verify ---
     t0 = time.perf_counter()
+    control: dict = {}
     if candidates:
-        verify(candidates, docs, text_source, agents, tracer)
+        cnum = next_rule_number(base_text, CONTROL_SECTION, taken)
+        cblock = f"### {cnum} Rule\n{CONTROL_RULE}\n"
+        croot = write_skill_text(with_patches(base_text, [(CONTROL_SECTION, cblock)]),
+                                 f"{version}+control", out_dir / "control" / "skills")
+        control = verify(candidates, docs, text_source, agents, tracer, SkillLibrary(croot))
+        control["rule"] = cblock
     timings["verify"] = time.perf_counter() - t0
     guard = default_guard()
     for m in guard.loaded():
@@ -300,6 +315,8 @@ def improve(run_id: str) -> dict:
                       "labels": list(c.labels), "held_out": c.held_out,
                       "diagnosis": d.diagnosis if (d := diagnoses[c.cluster_id]) else None}
                      for c in clusters],
+        "diagnoses_forced_at_max_steps": forced,
+        "control": control,
         "patches": [{"patch_id": c.patch_id, "rule_number": c.number, **c.verification}
                     for c in candidates],
     }
@@ -309,7 +326,7 @@ def improve(run_id: str) -> dict:
 
 
 def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: str,
-           agents: list[str], tracer: Tracer) -> None:
+           agents: list[str], tracer: Tracer, control_skills: SkillLibrary) -> dict:
     """Relabel the gold set (baseline cached) and each hold-out under the current guideline and
     under guideline + patch. Labelers are the outer loop: each model loads once."""
     th = thresholds()
@@ -320,12 +337,13 @@ def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: 
         f"{_cache_key(text_source, agents)}.json"
     cached = json.loads(cache.read_text()) if cache.exists() else {}
     held = {c.patch_id: _item_words(c.cluster.held) for c in candidates}
-    held_docs = {pid: _sub_docs(docs, w) for pid, w in held.items()}
+    held_docs = {pid: _held_receipts(docs, w) for pid, w in held.items()}
 
     gold_before: dict[str, WordLabels] = {}
     gold_after: dict[str, dict[str, WordLabels]] = {c.patch_id: {} for c in candidates}
     held_before: dict[str, dict[str, WordLabels]] = {c.patch_id: {} for c in candidates}
     held_after: dict[str, dict[str, WordLabels]] = {c.patch_id: {} for c in candidates}
+    gold_control: dict[str, WordLabels] = {}
     for name in agents:  # one model load per labeler for the whole stage
         agent = labeler_agent(name, labels)
         st = LabelerStats(name, agent.model)
@@ -336,6 +354,7 @@ def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: 
             cached[name] = {json.dumps(list(k)): v for k, v in gold_before[name].items()}
             cache.parent.mkdir(parents=True, exist_ok=True)
             cache.write_text(json.dumps(cached))
+        gold_control[name] = _label_docs(agent, gdocs, labels, tracer, control_skills, st)
         for c in candidates:
             gold_after[c.patch_id][name] = _label_docs(agent, gdocs, labels, tracer, c.skills, st)
             held_before[c.patch_id][name] = _label_docs(agent, held_docs[c.patch_id], labels,
@@ -346,6 +365,14 @@ def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: 
 
     gold_classes = gold_label_set()
     acc_before = {a: gold_accuracy(gdocs, gold_before[a])[0] for a in agents}
+    acc_control = {a: gold_accuracy(gdocs, gold_control[a])[0] for a in agents}
+    mean_c = sum(acc_control.values()) / len(agents)
+    mean_b0 = sum(acc_before.values()) / len(agents)
+    control = {"gold_accuracy_before": round(mean_b0, 4), "gold_accuracy_after": round(mean_c, 4),
+               "gold_accuracy_by_labeler": {a: [round(acc_before[a], 4), round(acc_control[a], 4)]
+                                            for a in agents}}
+    console.print(f"  control (no-op rule): gold {mean_b0:.3f} -> {mean_c:.3f} "
+                  f"({ {a: round(acc_control[a] - acc_before[a], 3) for a in agents} })")
     for c in candidates:
         acc_after = {a: gold_accuracy(gdocs, gold_after[c.patch_id][a])[0] for a in agents}
         mean_b = sum(acc_before.values()) / len(agents)
@@ -372,3 +399,4 @@ def verify(candidates: list[Candidate], docs: dict[str, LabelDoc], text_source: 
         console.print(f"  patch {c.number}: {c.verification['status']} "
                       f"(gold {mean_b:.3f} -> {mean_a:.3f}, cluster alpha "
                       f"{a_before:.3f} -> {a_after:.3f}) {'; '.join(reasons)}")
+    return control
