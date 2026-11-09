@@ -71,3 +71,6 @@
 | 2026-11-09 | Verifier | Advisory: computes and records numbers (pass/fail verdict), no auto-reject; every patch to the review queue with the numbers; the user decides |
 | 2026-11-09 | M6 | Orchestrator loop: label -> cluster -> diagnose -> write -> verify -> approval -> apply -> relabel -> next batch; exports: receipt JSON, guideline vN, trace, run report |
 | 2026-11-09 | M7 | FastAPI + React (Vite), simple: dashboard (run metrics, alpha per guideline version, changelog), review queue (lines with labels/status, patch with verifier numbers, approve/edit/reject driving the loop), trace viewer |
+| 2026-11-09 | Loop 2 patches | Rule 1.7 approved, rule 3.9 approved, relabel approved (user, in the UI) -> guideline v4 |
+| 2026-11-09 | Finish mode | Do only: finish the pending relabel; generalization check; README update; commit. No 100-receipt runs, extra M6 batches, test-split evals, remaining milestone work or "next steps" builds |
+| 2026-11-09 | Generalization check (main result) | Label train_0100-0149 (OCR) under v1 and v4, same 3 labelers. Report alpha, headline per labeler, majority and all-3-agree accuracy vs v2, % of words sent to review. Pass: majority v4 >= v1 + 2 points, alpha v4 > v1, review share v4 < v1. Report honestly, no tuning to pass |

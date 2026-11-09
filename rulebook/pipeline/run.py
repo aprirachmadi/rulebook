@@ -53,6 +53,8 @@ def run(
     offset: int = typer.Option(0, help="Skip this many receipts first"),
     labelers: str = typer.Option("", help="Comma-separated subset, e.g. labeler_a (default: all)"),
     improve: bool = typer.Option(False, help="Then cluster, diagnose, write and verify (M5)"),
+    guideline_version: str = typer.Option("", help="Label with this version, e.g. v1 "
+                                                   "(default: current)"),
 ) -> None:
     """Label a batch with the 3 labelers and report agreement (M4); optionally improve (M5)."""
     from rulebook.pipeline.labeling import run_batch
@@ -60,7 +62,8 @@ def run(
     if text_source not in ("ocr", "gold"):
         raise typer.BadParameter("text-source must be ocr or gold")
     subset = [x.strip() for x in labelers.split(",") if x.strip()] or None
-    summary = run_batch(text_source, batch_size, offset, subset)  # type: ignore[arg-type]
+    summary = run_batch(text_source, batch_size, offset, subset,  # type: ignore[arg-type]
+                        guideline_version or None)
     if improve:
         from rulebook.pipeline.improve import improve as run_improve
 

@@ -143,3 +143,7 @@ data:
     - validation_0092
     - validation_0094
     - validation_0097
+
+eval:
+  generalization:   # decision 2026-11-09: guideline v1 vs latest on unseen receipts
+    min_majority_gain: 0.02   # majority-vote accuracy must rise by >= 2 points

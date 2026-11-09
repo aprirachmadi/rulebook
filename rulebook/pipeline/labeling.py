@@ -121,8 +121,18 @@ def build_docs(text_source: TextSource, batch_size: int, offset: int) -> list[La
 
 
 def run_batch(text_source: TextSource, batch_size: int, offset: int = 0,
-              labelers: list[str] | None = None) -> dict:
-    version = sync_skill()  # cord-guideline skill = current guideline version
+              labelers: list[str] | None = None, version: str | None = None) -> dict:
+    """Label with `version` of the guideline (default: current). An older version is synced into
+    the cord-guideline skill for this run only; the current one is restored afterwards."""
+    try:
+        return _run_batch(text_source, batch_size, offset, labelers, sync_skill(version))
+    finally:
+        if version:
+            sync_skill()
+
+
+def _run_batch(text_source: TextSource, batch_size: int, offset: int,
+               labelers: list[str] | None, version: str) -> dict:
     tracer = Tracer()
     run_id = tracer.run_id
     docs = build_docs(text_source, batch_size, offset)
