@@ -87,8 +87,13 @@
 - All-agree-but-wrong on the OCR run (`eval/agree_wrong.py`): 82 words = 12 OCR misread + 70 shared mistakes; top shared pair menu.cnt -> menu.nm (20).
 - `rulebook improve 20261108-162007-4ac31b`: 561 accepted words, 30 low-confidence spans, 497 disagreement spans, 139 label sets, 8 clusters. **All 8 diagnosed AMBIGUOUS -> no patches.** Timings: cluster 0.1s, diagnose 136.1s, write 0, verify 0.
 
+- Option B (2026-11-09): taxonomy wording + 2 context lines per item; get_cluster shows 8 items (was 10) to stay under the 2,000-char cap. 137 tests.
+- Chunk boundaries: clusters 4-7 are **not** concentrated there (57% of their items are on single-chunk receipts; 9% on a boundary line vs 3% of all lines; cluster 7 has 4/13). No overlapping-chunk proposal.
+- Improve rerun on 20261108-162007-4ac31b: GUIDELINE_GAP for clusters 1 (change), 3 (cash), 4 (price vs other); rest AMBIGUOUS. 3 patches written (3.8, 3.9, 1.7), **all rejected**: gold 0.585 -> 0.570 / 0.573 / 0.555; gemma dropped 5.6-8.4 pts on every patch. Timings: cluster 0.1s, diagnose 152.9s, write 15.4s, verify 2119.4s. Diagnoser hit max_steps in 14 of 16 diagnoses across both runs (answer forced).
+- Shared-mistake measurement skipped: no verified patch yet.
+
 ## In progress
-- Waiting for the user: how to fix the diagnoser calling everything AMBIGUOUS (clusters 1-3: "guideline doesn't say" read as unclear input; clusters 4-7: OCR puts the keyword and the number on separate lines, and the diagnoser sees one line only).
+- Waiting for the user on verifier/rule-writer fixes: (1) hold-out relabels lines without their receipt, so the disagreement vanishes (cluster 3 before-alpha 1.0); (2) unknown gold noise floor (no-op control patch); (3) rules 3.8 and 1.7 push toward `other`, against the labeler prompt.
 
 ## Next
 - Milestone 4: OCR agent + labelers (needs `nemotron-3-nano:4b`, `llama3.2:3b` pulled).
