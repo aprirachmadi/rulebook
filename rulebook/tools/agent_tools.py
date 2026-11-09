@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from rulebook.data.store import Vote
 from rulebook.harness.tools import ToolRegistry, tool
@@ -43,6 +43,18 @@ class RunContext:
         v = self.votes.get((rid, li, wi), {})
         top = Counter(lab for lab, _, _ in v.values()).most_common(1)
         return top[0][0] if top else "-"
+
+
+def _line_error(ctx: RunContext, rid: str, li: int) -> str:
+    d = ctx.docs.get(rid)
+    if d is None:
+        return (f"error: no receipt {rid!r}; receipts in this run look like {sorted(ctx.docs)[:3]}"
+                ". Pass receipt_id and line_idx separately, e.g. receipt_id='train_0000', "
+                "line_idx=11 for item 'train_0000:11:0-1'.")
+    ids = [ln.line_idx for ln in d.lines]
+    if li not in ids:
+        return f"error: {rid} has no line {li}; its line_idx values are {ids}"
+    return ""
 
 
 def votes_str(v: dict[str, Vote]) -> str:
@@ -86,13 +98,31 @@ class ClusterArgs(BaseModel):
     cluster_id: int
 
 
+def _split_item_id(data: object) -> object:
+    """Agents often pass a cluster item id ('train_0000:11:0-1') as receipt_id. Accept it:
+    receipt 'train_0000', line 11 (decision 2026-11-09: fix the diagnoser bug)."""
+    if isinstance(data, dict) and isinstance(data.get("receipt_id"), str) \
+            and ":" in data["receipt_id"]:
+        rid, _, rest = data["receipt_id"].partition(":")
+        line = rest.split(":", 1)[0]
+        data = {**data, "receipt_id": rid}
+        if line.isdigit():
+            data["line_idx"] = int(line)
+    return data
+
+
 class LineArgs(BaseModel):
-    receipt_id: str
-    line_idx: int
+    receipt_id: str = Field(description="e.g. 'train_0000' (an item id like "
+                                        "'train_0000:11:0-1' is also accepted)")
+    line_idx: int = Field(default=0, description="the line number (11 in 'train_0000:11:0-1')")
+
+    _item = model_validator(mode="before")(staticmethod(_split_item_id))
 
 
 class ReceiptArgs(BaseModel):
-    receipt_id: str
+    receipt_id: str = Field(description="e.g. 'train_0000'")
+
+    _item = model_validator(mode="before")(staticmethod(_split_item_id))
 
 
 class SearchArgs(BaseModel):
@@ -116,8 +146,8 @@ def build_registry(ctx: RunContext) -> ToolRegistry:
           "and reason.", registry=reg)
     def get_votes(a: LineArgs) -> str:
         d = ctx.docs.get(a.receipt_id)
-        if d is None or not any(ln.line_idx == a.line_idx for ln in d.lines):
-            return "error: no such receipt line"
+        if (err := _line_error(ctx, a.receipt_id, a.line_idx)):
+            return err
         ln = next(ln for ln in d.lines if ln.line_idx == a.line_idx)
         return json.dumps([
             {"word": i, "text": w.text,
@@ -128,10 +158,9 @@ def build_registry(ctx: RunContext) -> ToolRegistry:
     @tool("get_ocr_conf", "The OCR text of a line and PaddleOCR's confidence (0-1). In gold-text "
           "mode there is no OCR confidence.", registry=reg)
     def get_ocr_conf(a: LineArgs) -> str:
-        d = ctx.docs.get(a.receipt_id)
-        ln = next((ln for ln in d.lines if ln.line_idx == a.line_idx), None) if d else None
-        if ln is None:
-            return "error: no such receipt line"
+        if (err := _line_error(ctx, a.receipt_id, a.line_idx)):
+            return err
+        ln = next(ln for ln in ctx.docs[a.receipt_id].lines if ln.line_idx == a.line_idx)
         return json.dumps({"text": ln.text, "text_source": ctx.text_source,
                            "ocr_confidence": ln.conf}, ensure_ascii=False)
 
@@ -141,7 +170,8 @@ def build_registry(ctx: RunContext) -> ToolRegistry:
     def sum_check(a: ReceiptArgs) -> str:
         d = ctx.docs.get(a.receipt_id)
         if d is None:
-            return "error: no such receipt"
+            return (f"error: no receipt {a.receipt_id!r}; receipts in this run look like "
+                    f"{sorted(ctx.docs)[:3]}")
         spans: list[tuple[str, str]] = []  # consecutive words with the same majority label
         for ln in d.lines:
             prev = None

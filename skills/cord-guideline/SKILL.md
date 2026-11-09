@@ -1,6 +1,6 @@
 ---
 name: cord-guideline
-description: The receipt labeling guideline, version v1. Label definitions and examples.
+description: The receipt labeling guideline, version v2. Label definitions and examples.
 ---
 # Receipt labeling guideline v1
 
@@ -74,6 +74,11 @@ Example: `Jumlah Item 1`
 ### 3.7 `total.menutype_cnt`
 The number of different items bought.
 Example: `Total Item 7`
+
+### 3.8 Rule
+3.8 `total.cashprice` 
+If the word 'CASH' or 'TUNAI' appears on a line without an amount, and the amount is on a separate line immediately above or below it, label both the word and the amount as `total.cashprice`.
+Examples: `Cash`; `TUNAI`; `Cash`
 
 ## 4. Other labels
 

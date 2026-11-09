@@ -207,3 +207,14 @@ def test_labeler_instructions_for_rule_writer() -> None:
     from rulebook.pipeline.improve import labeler_instructions
     text = labeler_instructions("labeler_a")
     assert "{LABELS}" not in text and 'Use "other" only' in text and "menu.nm" in text
+
+
+def test_tools_accept_item_ids_and_explain_errors() -> None:
+    reg = build_registry(_ctx("all"))
+    by_item = reg.run("get_votes", {"receipt_id": "r1:6:0-1"}, 2000)
+    by_parts = reg.run("get_votes", {"receipt_id": "r1", "line_idx": 6}, 2000)
+    assert by_item.ok and by_item.content == by_parts.content and "45.500" in by_item.content
+    assert "TOTAL" in reg.run("get_ocr_conf", {"receipt_id": "r1:6:0-0"}, 2000).content
+    assert "line_idx values are [0, 1, 2, 3, 4, 5, 6]" in reg.run(
+        "get_votes", {"receipt_id": "r1", "line_idx": 9}, 2000).content
+    assert "no receipt 'x'" in reg.run("sum_check", {"receipt_id": "x"}, 2000).content

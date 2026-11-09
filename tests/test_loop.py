@@ -17,7 +17,7 @@ from rulebook.tools import guideline
 from rulebook.tools.labels import DocLine, DocWord, LabelDoc, Span
 
 AGENTS = ["labeler_a", "labeler_b", "labeler_c"]
-GUIDE = "# Guideline\n\n## 1. Menu items\n\n- `menu.nm`: item name\n\n## 3. Total and payment\n"
+GUIDE = "# Guideline v1\n\n## 1. Menu items\n\n- `menu.nm`: item name\n\n## 3. Total and payment\n"
 
 
 def _doc() -> LabelDoc:
@@ -87,6 +87,7 @@ def test_loop_approve_applies_relabels_and_exports(sandbox: Path, monkeypatch) -
     assert guideline.current_version() == "v2"
     v2 = (sandbox / "guidelines" / "v2.md").read_text()
     assert "### 3.1 Rule\nTOTAL gets total.total_price." in v2
+    assert "# Guideline v2\n" in v2
     assert guideline.changelog("v2") == ["v2: rule 3.1 added (run1-c0)"]
     rec = json.loads((sandbox / "exports" / "receipts" / "train_0000.json").read_text())
     assert rec["guideline_version"] == "v2" and rec["run_id"] == "run2"

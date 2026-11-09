@@ -1,0 +1,12 @@
+{
+ "patch_id": "20261109-050623-12b1dd-c1",
+ "rule_number": "3.8",
+ "section": "3",
+ "rule_text": "3.8 `total.cashprice` \nIf the word 'CASH' or 'TUNAI' appears on a line without an amount, and the amount is on a separate line immediately above or below it, label both the word and the amount as `total.cashprice`.",
+ "examples": [
+  "Cash",
+  "TUNAI",
+  "Cash"
+ ],
+ "guideline_version": "v2"
+}

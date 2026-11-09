@@ -95,6 +95,7 @@ def publish_version(section: str, block: str, note: str) -> str:
     log = [*old_log, f"{new}: {note}"]
     header = "\n".join(f"<!-- changelog: {line} -->" for line in log)
     text = with_patches(guideline_text(prev), [(section, block)])
+    text = re.sub(rf"^(# .*)\b{prev}\b", rf"\g<1>{new}", text, count=1, flags=re.MULTILINE)
     (GUIDELINES / f"{new}.md").write_text(f"{header}\n{text}\n", encoding="utf-8")
     sync_skill(new)
     return new
