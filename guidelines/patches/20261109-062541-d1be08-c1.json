@@ -1,0 +1,12 @@
+{
+ "patch_id": "20261109-062541-d1be08-c1",
+ "rule_number": "3.9",
+ "section": "3",
+ "rule_text": "3.9 `total.changeprice` \nIf the word 'CHANGE', 'CHANGED', or 'KEMBALI' appears on a line without an amount, and the amount is on a separate line immediately above or below it, label both the word and the amount as `total.changeprice`.",
+ "examples": [
+  "0",
+  "CHANGED",
+  "CHANGE"
+ ],
+ "guideline_version": "v4"
+}

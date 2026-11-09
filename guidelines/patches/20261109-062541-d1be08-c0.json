@@ -1,0 +1,12 @@
+{
+ "patch_id": "20261109-062541-d1be08-c0",
+ "rule_number": "1.7",
+ "section": "1",
+ "rule_text": "Label standalone words or truncated names that appear to be part of a menu item or brand as `menu.nm` if they are part of the order list. Do not label them as `other` if they are located between other menu items or prices.",
+ "examples": [
+  "AFUNG",
+  "AFUNG",
+  "AFUNG"
+ ],
+ "guideline_version": "v3"
+}
