@@ -62,3 +62,6 @@
 | 2026-11-08 | 75% labeler bar | Applies to gold text. Run gold text on train_0000-0019 with the tightened prompt, report headline per labeler |
 | 2026-11-08 | All-agree-but-wrong breakdown | Split the OCR run's all-3-agree-but-wrong words into OCR misreads vs shared mistakes; list top confusion pairs of shared mistakes |
 | 2026-11-08 | Vision re-read agent | After M5 acceptance; ask then |
+| 2026-11-09 | Diagnoser all-AMBIGUOUS fix | Option B: sharpen AMBIGUOUS vs GUIDELINE_GAP in the taxonomy skill, and show 2 lines above/below each item to the diagnoser and rule writer |
+| 2026-11-09 | Chunk boundaries | Check whether clusters 4-7 concentrate at chunk boundaries; if yes, propose overlapping chunks (context lines shown, not labeled) and wait for OK before changing labelers |
+| 2026-11-09 | Shared mistakes | After the first verified patches, measure whether they also fix any of the 70 shared-mistake words |

@@ -21,7 +21,8 @@ from rulebook.tools.guideline import guideline_text
 from rulebook.tools.labels import LabelDoc
 from rulebook.tools.receipt import sum_check as receipt_sum_check
 
-MAX_ITEMS_SHOWN = 10  # tool results are cut at 2,000 chars (SPEC); keep items compact
+MAX_ITEMS_SHOWN = 8  # tool results are cut at 2,000 chars (SPEC); 8 items + context lines fit
+CONTEXT_LINES = 2  # lines shown above and below an item (decision 2026-11-09)
 
 
 @dataclass
@@ -50,8 +51,17 @@ def votes_str(v: dict[str, Vote]) -> str:
                       for a, (lab, conf, r) in sorted(v.items()))
 
 
+def context_lines(doc: LabelDoc, line_idx: int, n: int = CONTEXT_LINES) -> dict[str, list[str]]:
+    """Text of the `n` lines above and below a line, in reading order. OCR often puts a
+    keyword ("TOTAL") and its amount on separate lines."""
+    pos = next(i for i, ln in enumerate(doc.lines) if ln.line_idx == line_idx)
+    return {"above": [ln.text for ln in doc.lines[max(0, pos - n):pos]],
+            "below": [ln.text for ln in doc.lines[pos + 1:pos + 1 + n]]}
+
+
 def _item_view(ctx: RunContext, it: Item) -> dict:
     return {"id": it.item_id, "text": it.text, "line": it.line_text,
+            **context_lines(ctx.docs[it.receipt_id], it.line_idx),
             "votes": votes_str(it.votes)}
 
 
@@ -94,7 +104,7 @@ def build_registry(ctx: RunContext) -> ToolRegistry:
             "items_total": len(items),
             "items_shown": min(len(items), MAX_ITEMS_SHOWN),
             "items": [_item_view(ctx, it) for it in items[:MAX_ITEMS_SHOWN]],
-        }, ensure_ascii=False)
+        }, ensure_ascii=False, separators=(",", ":"))
 
     @tool("get_votes", "Every word of one receipt line with each labeler's label, confidence "
           "and reason.", registry=reg)

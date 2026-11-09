@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from pydantic import ValidationError
 
-from rulebook.tools.agent_tools import RunContext, build_registry
+from rulebook.tools.agent_tools import RunContext, build_registry, context_lines
 from rulebook.tools.clusters import (
     Item,
     agglomerative,
@@ -188,3 +188,9 @@ def _imports(path: Path) -> set[str]:
 def test_agent_facing_modules_never_reach_gold_or_v2(module: str) -> None:
     banned = {"rulebook.data.gold", "rulebook.tools.verify", "eval.answer_key", "eval"}
     assert not _imports(ROOT / module) & banned, module
+
+
+def test_context_lines_show_neighbors_in_reading_order() -> None:
+    doc = _doc("r1", [["A"], ["TOTAL"], ["45.500"], ["CASH"], ["50.000"]])
+    assert context_lines(doc, 2) == {"above": ["A", "TOTAL"], "below": ["CASH", "50.000"]}
+    assert context_lines(doc, 0) == {"above": [], "below": ["TOTAL", "45.500"]}

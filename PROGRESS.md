@@ -107,3 +107,5 @@
 - VRAM estimates are conservative: nemotron-3-nano:4b-8k measured 3.0 GB in `ollama ps` (estimate 3.9).
 - Strict coverage ("every word exactly once", one full repair) is hard for the small labelers on long receipts. Options if the failure rate is high: targeted repair of only the missing words, or labeling long receipts in line chunks.
 - At M5's first run: flag any labeler under 75% on the headline metric (qwen was 71.1% gold with the old prompt).
+- Consistency checks for shared mistakes (all 3 labelers agree but wrong), e.g. a number labeled `menu.nm` (user, 2026-11-09).
+- OCR word-matching errors, e.g. OCR `B` matched to CORD `20.000` (user, 2026-11-09).

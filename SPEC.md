@@ -94,6 +94,7 @@ receipt image
 - MODEL_ERROR: 2 of 3 agree, the guideline text clearly supports the majority, and the dissenter's reasoning contradicts the guideline.
 - AMBIGUOUS: the guideline covers the case but the input itself is unclear (e.g. truncated line).
 - GUIDELINE_GAP: no guideline rule covers the case, or two rules conflict. This is the only class that produces a patch.
+- AMBIGUOUS is about the text, never the guideline: "unclear whether A or B" with no rule saying which is a GUIDELINE_GAP. The Diagnoser and Rule writer see 2 lines above and below each cluster item (decision 2026-11-09).
 
 ### Clustering (keep it simple first)
 1. Key = sorted set of voted labels (decision 2026-11-08; the earlier key also included the normalized text pattern, which split item names into near-singletons). The normalized pattern (lowercase, digits → `#`, e.g. `disc #%`) is still shown to agents as a description.
