@@ -201,3 +201,9 @@ def test_held_receipts_are_whole() -> None:
     docs = {"r1": _doc("r1", [["A"], ["TOTAL"], ["45.500"]]), "r2": _doc("r2", [["B"]])}
     got = _held_receipts(docs, [("r1", 2, 0)])
     assert [d.receipt_id for d in got] == ["r1"] and len(got[0].lines) == 3
+
+
+def test_labeler_instructions_for_rule_writer() -> None:
+    from rulebook.pipeline.improve import labeler_instructions
+    text = labeler_instructions("labeler_a")
+    assert "{LABELS}" not in text and 'Use "other" only' in text and "menu.nm" in text

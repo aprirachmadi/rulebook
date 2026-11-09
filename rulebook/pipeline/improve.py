@@ -122,6 +122,11 @@ def _held_receipts(docs: dict[str, LabelDoc],
     return [docs[rid] for rid in sorted({rid for rid, _, _ in words})]
 
 
+def labeler_instructions(name: str) -> str:
+    """The system prompt a labeler follows (label list filled in), shown to the rule writer."""
+    return labeler_agent(name, labeler_labels()).system_prompt
+
+
 def _item_words(items: list) -> list[tuple[str, int, int]]:
     return [(it.receipt_id, it.line_idx, w) for it in items for w in it.words]
 
@@ -235,8 +240,7 @@ def improve(run_id: str) -> dict:
     candidates: list[Candidate] = []
     gaps = [c for c in clusters
             if (d := diagnoses[c.cluster_id]) and d.diagnosis == "GUIDELINE_GAP"]
-    labeler_rules = build_agent(agents[0]).system_prompt.replace(
-        "{LABELS}", "(the guideline's label list)")
+    labeler_rules = labeler_instructions(agents[0])
     for c in gaps:
         ctx.view = "visible"
         visible = {it.item_id: it for it in c.visible}
