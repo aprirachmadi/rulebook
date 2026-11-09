@@ -138,6 +138,13 @@ def improve_with_agent(run_id: str, client=None) -> dict:
                     registry=orchestrator_registry(s, max_clusters), tracer=s.tracer,
                     client=client)
     report = res.output
+    acted = set(s.diagnoses) | {d["cluster_id"] for d in getattr(s, "decisions", [])}
+    for c in s.clusters:  # clusters the agent never touched still reach a human
+        if c.cluster_id not in acted:
+            s.db.execute("INSERT INTO review_queue VALUES (?, ?, ?, ?)",
+                         (s.run_id, "cluster", json.dumps({"cluster_id": c.cluster_id}),
+                          "not handled by the orchestrator"))
+    s.db.commit()
     return s.finish({
         "orchestrator": "agent",
         "orchestrator_stop": res.stop_reason, "orchestrator_steps": res.steps,

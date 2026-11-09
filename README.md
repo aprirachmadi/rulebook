@@ -140,13 +140,25 @@ line without an amount, with the amount on the next line, labels both lines `tot
 **Caveat:** the after numbers come from the same 10 receipts the rule was written from, and 10
 receipts is a small sample. Treat this as "the loop works end to end", not as a measured gain.
 
+**The orchestrator agent, live** (`loop-20261109-062540`, train_0060–0069, OCR, may handle 2
+of 4 open clusters). In 10 steps it listed the clusters and picked the two largest. It ran
+diagnoser → rule writer → verifier → `submit_patch` on each, giving a reason for every call
+(see the trace viewer, agent `orchestrator`), then reported. Both drafted rules passed the
+advisory verifier. Rule 3.9 (a "CHANGE"/"KEMBALI" line, amount on the next line → both
+`total.changeprice`) moved gold-set accuracy 0.593 → 0.630, while the no-op control moved it
+0.593 → 0.588. Rule 1.7 (truncated item names → `menu.nm`) moved it 0.593 → 0.598. Both wait
+for a human decision. Stage times: diagnose 43 s, write 11 s, verify 2,378 s.
+
 ## Limitations (honest list)
 
 - **Verifier noise is as big as the effects.** A no-op rule ("read each line in full") moved gemma's
   gold accuracy by −5.4 points and qwen's by +3.7. Patches move gold by a few points, so the
   verifier's pass/fail is advisory and a human decides. Held-out samples are tiny (2–9 words).
 - **The diagnoser over-inspects.** After the tool-argument fix (0 tool errors, down from dozens),
-  7 of 8 diagnoses still use all 12 steps and are forced to answer.
+  7 of 8 diagnoses on the 50-receipt run still use all 12 steps and are forced to answer (2 of 2
+  in the orchestrator run).
+- **The orchestrator skips silently.** It did not call `skip_cluster` for clusters it left; those
+  now go to the review queue as "not handled by the orchestrator".
 - **Small labelers on OCR text** score 54–75% headline. 70 of the 82 confident errors are shared
   by all three models, so agreement alone does not catch them.
 - **M5 acceptance is not met yet:** no verified patch on a 100-receipt run.

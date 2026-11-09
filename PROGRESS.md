@@ -93,9 +93,9 @@
 - Shared-mistake measurement skipped: no verified patch yet.
 
 ## In progress
-- New priority (user, 2026-11-09): end to end first, quality later.
-- Built: verifier advisory (every patch -> review queue with numbers); M6 loop (`rulebook loop`, `rulebook/pipeline/orchestrate.py`, exports to `exports/`); `QueueApprover`; M7 API (`rulebook/api/app.py`) + React/Vite UI (`web/`): dashboard, review queue, trace viewer. 144 tests (loop mechanics tested with fake labelers).
-- Live loop `loop-20261109-050622` (started from the UI; train_0050-0059, OCR, 2 clusters): labeled, diagnosed 2/2 GUIDELINE_GAP, 2 patches; verifier: 1.7 fail, **3.8 pass** (gold 0.585 -> 0.593, held-out alpha -0.11 -> 1.00). Waiting in the review queue for the user's decisions (patch 1.7, then 3.8, then relabel). Run the UI: `poetry run uvicorn rulebook.api.app:app --port 8000` (after `npm run build` in `web/`).
+- Built (2026-11-09): advisory verifier; M6 loop + exports; M7 FastAPI + React UI; diagnoser item-id fix (0 tool errors; still 7/8 forced at max_steps on the 50-receipt clusters: it makes 6-10 valid calls); **orchestrator as an LLM agent** (`rulebook/pipeline/orchestrator_agent.py`, `delegate` in `rulebook/harness/orchestrator.py`; `--orchestrator code` = fallback); README. 146 tests.
+- Loop `loop-20261109-050622` (code orchestrator): user rejected 1.7, approved 3.8 -> v2; relabel alpha 0.587 -> 0.621; done, exports written.
+- Loop `loop-20261109-062540` (agent orchestrator, train_0060-0069): handled clusters 0 and 1, both rules verifier pass (3.9: gold 0.593 -> 0.630). **Waiting for the user's decisions** on rules 1.7 and 3.9 in the review queue.
 
 ## Improve later (quality; not fixing now, user 2026-11-09)
 - **Verifier noise:** gemma lost 5.6-8.4 gold points on every patch, including one matching CORD. The no-op control patch is built (reported per run); use it to set the thresholds. Held-out samples are tiny (7-9 words).
@@ -105,8 +105,8 @@
 - **Vision re-read agent:** decision C put it in M5; deferred until after M5 acceptance.
 - **OCR word matching:** e.g. OCR `B` matched to CORD `20.000`.
 - **Rule quality:** rules 3.8 / 1.7 pushed toward `other` (fixed by showing labeler instructions; unverified). Real gap: keyword and value split across two OCR lines.
-- **Diagnoser tool misuse:** it passes item ids (`train_0000:11:0-1`) as `receipt_id` to `get_votes` and gets "no such receipt line" (seen in the trace viewer); wastes steps.
-- **LLM orchestrator:** the M6 loop is plain code calling the stages; SPEC's orchestrator agent with `delegate` is not built.
+- **Diagnoser tool misuse (fixed 2026-11-09; step limit remains):** it passes item ids (`train_0000:11:0-1`) as `receipt_id` to `get_votes` and gets "no such receipt line" (seen in the trace viewer); wastes steps.
+- **LLM orchestrator:** built 2026-11-09. It does not call `skip_cluster` for clusters it leaves (now auto-queued). The trace shows only tool names on model events; reasons are on the tool events.
 - **Control patch noise (live, loop-20261109-050622):** the no-op rule moved gold 0.585 -> 0.579; gemma -0.054, qwen +0.037. Patch differences of a few points are within this noise.
 - **Rule writer puts the number/label in rule_text** (e.g. "3.8 `total.cashprice`\n...").
 - **M5 acceptance** (verified patch on a 100-receipt run) is not met; verifier is advisory for now.
