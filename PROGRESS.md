@@ -93,7 +93,9 @@
 - Shared-mistake measurement skipped: no verified patch yet.
 
 ## In progress
-- New priority (user, 2026-11-09): end to end first, quality later. Verifier advisory; M6 orchestrator loop + exports; M7 UI (FastAPI + React/Vite). The rerun with fixes 1-5 was stopped mid-verify (after a fixed crash; that attempt's diagnosis gave 7/8 GUIDELINE_GAP, 6/8 forced at max_steps).
+- New priority (user, 2026-11-09): end to end first, quality later.
+- Built: verifier advisory (every patch -> review queue with numbers); M6 loop (`rulebook loop`, `rulebook/pipeline/orchestrate.py`, exports to `exports/`); `QueueApprover`; M7 API (`rulebook/api/app.py`) + React/Vite UI (`web/`): dashboard, review queue, trace viewer. 144 tests (loop mechanics tested with fake labelers).
+- Live loop `loop-20261109-050622` (started from the UI; train_0050-0059, OCR, 2 clusters): labeled, diagnosed 2/2 GUIDELINE_GAP, 2 patches; verifier: 1.7 fail, **3.8 pass** (gold 0.585 -> 0.593, held-out alpha -0.11 -> 1.00). Waiting in the review queue for the user's decisions (patch 1.7, then 3.8, then relabel). Run the UI: `poetry run uvicorn rulebook.api.app:app --port 8000` (after `npm run build` in `web/`).
 
 ## Improve later (quality; not fixing now, user 2026-11-09)
 - **Verifier noise:** gemma lost 5.6-8.4 gold points on every patch, including one matching CORD. The no-op control patch is built (reported per run); use it to set the thresholds. Held-out samples are tiny (7-9 words).
