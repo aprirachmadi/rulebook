@@ -146,31 +146,35 @@ diagnoser → rule writer → verifier → `submit_patch` on each, giving a reas
 (see the trace viewer, agent `orchestrator`), then reported. Both drafted rules passed the
 advisory verifier. Rule 3.9 (a "CHANGE"/"KEMBALI" line, amount on the next line → both
 `total.changeprice`) moved gold-set accuracy 0.593 → 0.630, while the no-op control moved it
-0.593 → 0.588. Rule 1.7 (truncated item names → `menu.nm`) moved it 0.593 → 0.598. Both wait
-for a human decision. Stage times: diagnose 43 s, write 11 s, verify 2,378 s.
+0.593 → 0.588. Rule 1.7 (truncated item names → `menu.nm`) moved it 0.593 → 0.598. The human
+approved both (guideline v4) and the relabel. Stage times: diagnose 43 s, write 11 s, verify 2,378 s.
+On those same 10 receipts (in-sample), v2 → v4: alpha 0.651 → 0.650, majority vote 76.6 → 77.9%,
+all-3-agree 84.6 → 87.4%, words sent to review 41.6 → 38.6%.
 
 ## Limitations (honest list)
 
+- **OCR-mode accuracy is modest.** Majority vote matches v2 on about 70–76% of words on OCR
+  text (91% on clean text), and single labelers score 54–78% headline. 7–11% of OCR words have no
+  CORD word to match, and the OCR-to-CORD word matching has errors (e.g. `B` → `20.000`).
 - **Verifier noise is as big as the effects.** A no-op rule ("read each line in full") moved gemma's
   gold accuracy by −5.4 points and qwen's by +3.7. Patches move gold by a few points, so the
   verifier's pass/fail is advisory and a human decides. Held-out samples are tiny (2–9 words).
-- **The diagnoser over-inspects.** After the tool-argument fix (0 tool errors, down from dozens),
-  7 of 8 diagnoses on the 50-receipt run still use all 12 steps and are forced to answer (2 of 2
-  in the orchestrator run).
-- **The orchestrator skips silently.** It did not call `skip_cluster` for clusters it left; those
-  now go to the review queue as "not handled by the orchestrator".
-- **Small labelers on OCR text** score 54–75% headline. 70 of the 82 confident errors are shared
-  by all three models, so agreement alone does not catch them.
-- **M5 acceptance is not met yet:** no verified patch on a 100-receipt run.
-- The chunking (20 lines per call) has never been tested on its own. There is no vision re-read for
-  unreadable OCR lines yet, and OCR word matching to CORD has errors (e.g. `B` → `20.000`).
-- Not done yet (M8): the eval-set report (accuracy, macro-F1, v1 vs final), the suspect-v2 list, the
-  single-agent ablation.
+- **The diagnoser hits its step limit.** After the tool-argument fix (0 tool errors, down from
+  dozens), 7 of 8 diagnoses on the 50-receipt run still use all 12 steps and are forced to answer
+  (2 of 2 in the orchestrator run).
+- **Shared mistakes the loop can't see.** The loop only looks at disagreements. 70 of the 82
+  all-agree-but-wrong OCR words are the same wrong label from all three models (top:
+  `menu.cnt` → `menu.nm`, 20 words), so no cluster ever forms for them.
+- **The loop is tested on small batches only:** two live loops of 10 receipts each, and one
+  50-receipt generalization check.
+- The orchestrator does not call `skip_cluster` for clusters it leaves; those go to the review
+  queue as "not handled by the orchestrator".
 
 ## Next steps
 
-1. Make the verifier trustworthy: repeat the control to measure the noise, set thresholds from it,
-   and use larger held-out sets.
-2. Rein in the diagnoser (fewer tool calls per diagnosis, or show it everything up front).
-3. Consistency checks for shared mistakes (e.g. a bare number labeled `menu.nm`).
-4. A 100-receipt run for M5 acceptance, then M8: the eval-set report, the suspect-v2 list and the ablation.
+1. An inference page: upload a receipt, get labeled JSON back.
+2. Enforce a 3-inspection cap for the diagnoser in its tools.
+3. UI renames: "gold text" → "clean text", "gold set" → "verification set".
+4. A chunk-size ablation (the 20-line chunks have never been tested on their own).
+5. A vision re-read agent for OCR lines nobody can read.
+6. Larger runs.
