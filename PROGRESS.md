@@ -103,6 +103,8 @@
 - **Vision re-read agent:** decision C put it in M5; deferred until after M5 acceptance.
 - **OCR word matching:** e.g. OCR `B` matched to CORD `20.000`.
 - **Rule quality:** rules 3.8 / 1.7 pushed toward `other` (fixed by showing labeler instructions; unverified). Real gap: keyword and value split across two OCR lines.
+- **Diagnoser tool misuse:** it passes item ids (`train_0000:11:0-1`) as `receipt_id` to `get_votes` and gets "no such receipt line" (seen in the trace viewer); wastes steps.
+- **LLM orchestrator:** the M6 loop is plain code calling the stages; SPEC's orchestrator agent with `delegate` is not built.
 - **M5 acceptance** (verified patch on a 100-receipt run) is not met; verifier is advisory for now.
 
 ## Next

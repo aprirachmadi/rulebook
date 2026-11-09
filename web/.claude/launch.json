@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rulebook-ui",
+      "runtimeExecutable": "poetry",
+      "runtimeArgs": ["-C", "/media/frhvn/Data/myprojects/rulebook", "run", "uvicorn", "rulebook.api.app:app", "--port", "8000", "--app-dir", "/media/frhvn/Data/myprojects/rulebook"],
+      "port": 8000
+    }
+  ]
+}
