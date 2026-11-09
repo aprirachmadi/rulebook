@@ -114,3 +114,4 @@
 - At M5's first run: flag any labeler under 75% on the headline metric (qwen was 71.1% gold with the old prompt).
 - Consistency checks for shared mistakes (all 3 labelers agree but wrong), e.g. a number labeled `menu.nm` (user, 2026-11-09).
 - OCR word-matching errors, e.g. OCR `B` matched to CORD `20.000` (user, 2026-11-09).
+- Chunking ablation: rerun the same 20 gold-text receipts with no chunking (whole receipt per call; needs the labeler prompt budget raised above 3,000) and compare coverage, repairs, headline and alpha. The 2026-11-08 coverage jump came with 3 other fixes at once, and 2 of 3 models changed since, so chunking's own effect is unmeasured. Biggest receipt ~5.6k tokens, fits 8k.
