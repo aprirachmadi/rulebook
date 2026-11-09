@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
 import subprocess
 import sys
 from collections import Counter
@@ -244,7 +245,8 @@ def start_loop(body: LoopIn) -> dict:
            "--max-clusters", str(body.max_clusters), "--approver", "queue"]
     with log.open("w") as fh:
         subprocess.Popen(cmd, cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT,
-                         start_new_session=True)
+                         start_new_session=True,
+                         env={**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "120"})
     return {"loop_id": loop_id, "log": str(log)}
 
 
