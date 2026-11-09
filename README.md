@@ -14,22 +14,46 @@ the known issues.
 
 ## What it does
 
+```mermaid
+flowchart TD
+    R[/"Batch of receipts<br/>CORD v2 images"/] --> OCR["OCR<br/>PaddleOCR on CPU"]
+    G[("Guideline vN<br/>cord-guideline skill")] -.-> LAB
+    OCR --> LAB["3 labelers, one model on the GPU at a time<br/>qwen3.5:4b · llama3.1:8b · gemma4:12b"]
+    LAB -->|"word-level votes + confidence"| SPLIT{"All 3 agree<br/>and confident?"}
+    SPLIT -->|yes| ACC["Accepted labels"]
+    SPLIT -->|"no: disagreement"| CL["Clusters<br/>by the set of labels voted"]
+    SPLIT -->|"agree, but unsure"| Q
+
+    CL -->|"top clusters"| ORC
+    CL -->|"small or over the cap"| Q
+
+    subgraph AG["Improvement round: agents"]
+        ORC{{"Orchestrator agent<br/>picks clusters, gives a reason"}}
+        ORC -->|delegate| DIA["Diagnoser<br/>OCR_ERROR · MODEL_ERROR ·<br/>AMBIGUOUS · GUIDELINE_GAP"]
+        DIA -->|GUIDELINE_GAP| RW["Rule writer<br/>one numbered rule + examples"]
+        RW --> VER["Verifier, code, advisory<br/>gold-set accuracy · held-out alpha ·<br/>no-op control rule"]
+    end
+
+    DIA -->|"other diagnoses"| Q
+    VER -->|submit_patch| Q
+    Q[["Review queue<br/>web UI"]] --> H{"Human<br/>approve · edit · reject"}
+    H -->|"approve / edit"| NV[("Guideline vN+1<br/>+ changelog")]
+    NV --> RL["Relabel the batch<br/>under vN+1"]
+    H -->|reject| EXP
+    RL --> EXP
+    ACC --> EXP[/"Exports<br/>receipt JSON · guideline · traces · loop report"/]
+    EXP --> NEXT(["Next batch, starting from vN+1"])
+
+    classDef model fill:#e8f0fd,stroke:#2a78d6,color:#0b2e5c
+    classDef human fill:#fdeee4,stroke:#eb6834,color:#5c2408
+    classDef store fill:#eef7ee,stroke:#3d8b3d,color:#163d16
+    class LAB,ORC,DIA,RW,RL model
+    class Q,H human
+    class G,NV,EXP store
 ```
-receipts ──► OCR (PaddleOCR, CPU) ──► 3 labelers (qwen3.5:4b, llama3.1:8b, gemma4:12b)
-                                           │ word-level votes + confidence
-                                           ▼
-             disagreements ──► clusters (by the set of labels the labelers split between)
-                                           │
-                     orchestrator agent (gemma4:12b) picks clusters and delegates:
-                       diagnoser ──► OCR_ERROR | MODEL_ERROR | AMBIGUOUS | GUIDELINE_GAP
-                       rule writer ──► one new numbered rule + examples   (gaps only)
-                       verifier ──► gold-set accuracy, held-out cluster alpha, no-op control
-                       submit_patch ──► review queue
-                                           │
-             human (web UI): approve / edit / reject ──► guideline v(N+1) ──► relabel batch
-                                           │
-             exports: receipt JSON, guideline vN + changelog, traces, loop report
-```
+
+Blue: model agents. Orange: the human's part. Green: stored artifacts. Every decision the
+orchestrator makes, and every tool call, goes into a JSONL trace you can browse in the UI.
 
 - **Labeling unit:** words. Each OCR line is shown with numbered words; a labeler returns spans
   `{line_idx, words, label, confidence, reason}`. The JSON schema per line is enforced by Ollama, and
